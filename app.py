@@ -16,6 +16,8 @@ from utils.agent import RLAgent
 from utils.performance_tracker import StrategyPerformanceTracker
 from utils.strategies import StrategyEngine
 from utils.strategy_selector import choose_strategy, get_bet_size_recommendation, get_strategy_description
+from utils.wheel_input import create_roulette_wheel_input, create_file_importer
+from utils.quick_input import add_floating_quick_input
 
 # Set page configuration
 st.set_page_config(
@@ -151,6 +153,10 @@ with st.sidebar:
 # Main content area with tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Spin Tracker", "Analysis", "Betting Suggestions", "Advanced Strategy Agent", "Statistics"])
 
+# Add floating quick input panel at the bottom of the screen
+current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+add_floating_quick_input(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
+
 # Tab 1: Spin Tracker
 with tab1:
     st.header(f"Spin Tracker - {st.session_state.current_session}")
@@ -161,40 +167,102 @@ with tab1:
     # Display current roulette type
     st.info(f"Current Roulette Type: {current_roulette_type}")
     
-    # Input section for new spins
+    # Input section for new spins with tabs for different input methods
     st.subheader("Record New Spin")
     
-    col1, col2 = st.columns(2)
+    data_input_tabs = st.tabs(["Visual Wheel Input", "Manual Entry", "Import from File"])
     
-    with col1:
-        # Input for spin number
-        if current_roulette_type == "European":
-            spin_number = st.number_input("Spin Result (0-36):", min_value=0, max_value=36, step=1)
-        else:  # American
-            spin_number = st.number_input("Spin Result (00, 0-36):", min_value=-1, max_value=36, step=1, 
-                                          help="Enter -1 for '00' (American roulette)")
+    with data_input_tabs[0]:
+        # Visual wheel input
+        st.write("Use the visual roulette wheel to select a number:")
+        selected_number = create_roulette_wheel_input(current_roulette_type)
+        
+        if selected_number:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Use current time by default
+                use_current_time = st.checkbox("Use current time", value=True)
+            
+            with col2:
+                # Add button to confirm the selection
+                add_selected = st.button("Add Selected Number")
+            
+            if add_selected:
+                # Timestamp handling
+                if use_current_time:
+                    spin_timestamp = datetime.now()
+                else:
+                    # Add timestamp selection if not using current time
+                    st.write("Select date and time:")
+                    timestamp = st.date_input("Spin Date:", value=datetime.now().date())
+                    time_input = st.time_input("Spin Time:", value=datetime.now().time())
+                    spin_timestamp = datetime.combine(timestamp, time_input)
+                
+                # Add spin to current session
+                st.session_state.roulette_data.add_spin(
+                    session_name=st.session_state.current_session,
+                    number=selected_number,
+                    timestamp=spin_timestamp
+                )
+                
+                st.success(f"Added spin result: {selected_number}")
+                st.rerun()  # Refresh the page to show updated data
     
-    with col2:
-        # Add timestamp
-        timestamp = st.date_input("Spin Date:", value=datetime.now().date())
-        time_input = st.time_input("Spin Time:", value=datetime.now().time())
+    with data_input_tabs[1]:
+        # Traditional manual input
+        col1, col2 = st.columns(2)
         
-    # Combine date and time
-    spin_timestamp = datetime.combine(timestamp, time_input)
+        with col1:
+            # Input for spin number
+            if current_roulette_type == "European":
+                spin_number = st.number_input("Spin Result (0-36):", min_value=0, max_value=36, step=1)
+            else:  # American
+                spin_number = st.number_input("Spin Result (00, 0-36):", min_value=-1, max_value=36, step=1, 
+                                            help="Enter -1 for '00' (American roulette)")
+        
+        with col2:
+            # Add timestamp
+            timestamp = st.date_input("Spin Date:", value=datetime.now().date())
+            time_input = st.time_input("Spin Time:", value=datetime.now().time())
+            
+        # Combine date and time
+        spin_timestamp = datetime.combine(timestamp, time_input)
+        
+        # Button to add the spin
+        if st.button("Add Spin Result", key="manual_add_btn"):
+            # Convert -1 to '00' for American roulette
+            display_number = '00' if spin_number == -1 else str(spin_number)
+            
+            # Add spin to current session
+            st.session_state.roulette_data.add_spin(
+                session_name=st.session_state.current_session,
+                number=display_number,
+                timestamp=spin_timestamp
+            )
+            
+            st.success(f"Added spin result: {display_number}")
+            st.rerun()  # Refresh the page to show updated data
     
-    # Button to add the spin
-    if st.button("Add Spin Result"):
-        # Convert -1 to '00' for American roulette
-        display_number = '00' if spin_number == -1 else str(spin_number)
+    with data_input_tabs[2]:
+        # Import from file
+        imported_data = create_file_importer()
         
-        # Add spin to current session
-        st.session_state.roulette_data.add_spin(
-            session_name=st.session_state.current_session,
-            number=display_number,
-            timestamp=spin_timestamp
-        )
-        
-        st.success(f"Added spin result: {display_number}")
+        if imported_data is not None:
+            with st.spinner("Importing data..."):
+                # Add each spin to the session
+                for _, row in imported_data.iterrows():
+                    number = row['number']
+                    timestamp = row['timestamp'] if 'timestamp' in row else datetime.now()
+                    
+                    st.session_state.roulette_data.add_spin(
+                        session_name=st.session_state.current_session,
+                        number=str(number),
+                        timestamp=timestamp
+                    )
+                
+                st.success(f"Successfully imported {len(imported_data)} spins!")
+                st.rerun()  # Refresh the page to show updated data
     
     # Display the current session's spin history
     st.subheader("Spin History")
