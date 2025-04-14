@@ -925,91 +925,96 @@ with tab4:
                     # Add small delay for smooth appearance
                     time.sleep(0.2)
                     
+                    # First, calculate all confidence values and find highest confidence recommendation
+                    highest_confidence = 0
+                    best_bet_type = "None"
+                    best_bet_value = "None"
+                    
+                    # Check all bet types and find the one with highest confidence
+                    if specific_recommendations["red_black"]["recommendation"]:
+                        conf = specific_recommendations["red_black"]["confidence"]
+                        if conf > highest_confidence:
+                            highest_confidence = conf
+                            best_bet_type = "Color"
+                            best_bet_value = specific_recommendations["red_black"]["recommendation"].upper()
+                    
+                    if specific_recommendations["even_odd"]["recommendation"]:
+                        conf = specific_recommendations["even_odd"]["confidence"]
+                        if conf > highest_confidence:
+                            highest_confidence = conf
+                            best_bet_type = "Parity"
+                            best_bet_value = specific_recommendations["even_odd"]["recommendation"].upper()
+                    
+                    if specific_recommendations["high_low"]["recommendation"]:
+                        conf = specific_recommendations["high_low"]["confidence"]
+                        if conf > highest_confidence:
+                            highest_confidence = conf
+                            best_bet_type = "Range"
+                            best_bet_value = specific_recommendations["high_low"]["recommendation"].upper()
+                    
+                    if specific_recommendations["columns"]["recommendation"]:
+                        conf = specific_recommendations["columns"]["confidence"]
+                        if conf > highest_confidence:
+                            highest_confidence = conf
+                            best_bet_type = "Column"
+                            best_bet_value = specific_recommendations["columns"]["recommendation"].upper()
+                    
+                    if specific_recommendations["dozens"]["recommendation"]:
+                        conf = specific_recommendations["dozens"]["confidence"]
+                        if conf > highest_confidence:
+                            highest_confidence = conf
+                            best_bet_type = "Dozen"
+                            best_bet_value = specific_recommendations["dozens"]["recommendation"].upper()
+                    
+                    # Animate first column appearance
                     with summary_cols[0]:
                         st.markdown("### Best Bets")
                         
-                        # Get the highest confidence recommendation type
-                        highest_confidence = 0
-                        best_bet_type = "None"
-                        best_bet_value = "None"
-            
-            # Check all bet types and find the one with highest confidence
-            if specific_recommendations["red_black"]["recommendation"]:
-                conf = specific_recommendations["red_black"]["confidence"]
-                if conf > highest_confidence:
-                    highest_confidence = conf
-                    best_bet_type = "Color"
-                    best_bet_value = specific_recommendations["red_black"]["recommendation"].upper()
-            
-            if specific_recommendations["even_odd"]["recommendation"]:
-                conf = specific_recommendations["even_odd"]["confidence"]
-                if conf > highest_confidence:
-                    highest_confidence = conf
-                    best_bet_type = "Parity"
-                    best_bet_value = specific_recommendations["even_odd"]["recommendation"].upper()
-            
-            if specific_recommendations["high_low"]["recommendation"]:
-                conf = specific_recommendations["high_low"]["confidence"]
-                if conf > highest_confidence:
-                    highest_confidence = conf
-                    best_bet_type = "Range"
-                    best_bet_value = specific_recommendations["high_low"]["recommendation"].upper()
-            
-            if specific_recommendations["columns"]["recommendation"]:
-                conf = specific_recommendations["columns"]["confidence"]
-                if conf > highest_confidence:
-                    highest_confidence = conf
-                    best_bet_type = "Column"
-                    best_bet_value = specific_recommendations["columns"]["recommendation"].upper()
-            
-            if specific_recommendations["dozens"]["recommendation"]:
-                conf = specific_recommendations["dozens"]["confidence"]
-                if conf > highest_confidence:
-                    highest_confidence = conf
-                    best_bet_type = "Dozen"
-                    best_bet_value = specific_recommendations["dozens"]["recommendation"].upper()
-            
-            # Add single numbers, split bets, and corner bets (if available)
-            st.markdown("#### Top Recommended Bets:")
-            
-            # Start with the overall best recommendation
-            if highest_confidence > 0:
-                st.markdown(f"**{best_bet_type}:** {best_bet_value} (Confidence: {highest_confidence*100:.0f}%)")
-            
-            # Add single numbers
-            if specific_recommendations["single_numbers"]:
-                numbers_str = ", ".join([n["number"] for n in specific_recommendations["single_numbers"][:2]])
-                st.markdown(f"**Numbers:** {numbers_str}")
-            
-            # Add split bets
-            if specific_recommendations["split_bets"]:
-                splits_str = ", ".join([s["numbers"] for s in specific_recommendations["split_bets"][:2]])
-                st.markdown(f"**Split Bets:** {splits_str}")
-            
-            # Add corner bets
-            if "corner_bets" in specific_recommendations and specific_recommendations["corner_bets"]:
-                corners_str = ", ".join([c["numbers"] for c in specific_recommendations["corner_bets"][:1]])
-                st.markdown(f"**Corner Bets:** {corners_str}")
-            
-            # Add street bets (3 consecutive numbers in a row)
-            # Since we don't have explicit street bet analysis, we'll derive it from hot numbers
-            if specific_recommendations["single_numbers"]:
-                hot_nums = [int(n["number"]) for n in specific_recommendations["single_numbers"] if str(n["number"]).isdigit()]
-                # Check if any numbers form a street (3 consecutive numbers in a row)
-                streets = []
-                for num in hot_nums:
-                    # A street consists of 3 consecutive numbers in a row (e.g., 1-2-3, 4-5-6, etc.)
-                    row = (int(num) - 1) // 3
-                    street_start = row * 3 + 1
-                    street = f"{street_start}-{street_start+1}-{street_start+2}"
-                    if street not in streets:
-                        streets.append(street)
-                
-                if streets:
-                    streets_str = ", ".join(streets[:2])
-                    st.markdown(f"**Street Bets:** {streets_str}")
-                
-                    # Add the second column with animated appearance
+                        # Add top recommended bets with subtle animations
+                        st.markdown("#### Top Recommended Bets:")
+                        
+                        # Start with the overall best recommendation
+                        if highest_confidence > 0:
+                            st.markdown(f"**{best_bet_type}:** {best_bet_value} (Confidence: {highest_confidence*100:.0f}%)")
+                        
+                        # Add single numbers
+                        if specific_recommendations["single_numbers"]:
+                            time.sleep(0.1)  # Subtle delay for animation
+                            numbers_str = ", ".join([n["number"] for n in specific_recommendations["single_numbers"][:2]])
+                            st.markdown(f"**Numbers:** {numbers_str}")
+                        
+                        # Add split bets
+                        if specific_recommendations["split_bets"]:
+                            time.sleep(0.1)  # Subtle delay for animation
+                            splits_str = ", ".join([s["numbers"] for s in specific_recommendations["split_bets"][:2]])
+                            st.markdown(f"**Split Bets:** {splits_str}")
+                        
+                        # Add corner bets
+                        if "corner_bets" in specific_recommendations and specific_recommendations["corner_bets"]:
+                            time.sleep(0.1)  # Subtle delay for animation
+                            corners_str = ", ".join([c["numbers"] for c in specific_recommendations["corner_bets"][:1]])
+                            st.markdown(f"**Corner Bets:** {corners_str}")
+                        
+                        # Add street bets (3 consecutive numbers in a row)
+                        # Since we don't have explicit street bet analysis, we'll derive it from hot numbers
+                        if specific_recommendations["single_numbers"]:
+                            hot_nums = [int(n["number"]) for n in specific_recommendations["single_numbers"] if str(n["number"]).isdigit()]
+                            # Check if any numbers form a street (3 consecutive numbers in a row)
+                            streets = []
+                            for num in hot_nums:
+                                # A street consists of 3 consecutive numbers in a row (e.g., 1-2-3, 4-5-6, etc.)
+                                row = (int(num) - 1) // 3
+                                street_start = row * 3 + 1
+                                street = f"{street_start}-{street_start+1}-{street_start+2}"
+                                if street not in streets:
+                                    streets.append(street)
+                            
+                            if streets:
+                                time.sleep(0.1)  # Subtle delay for animation
+                                streets_str = ", ".join(streets[:2])
+                                st.markdown(f"**Street Bets:** {streets_str}")
+                    
+                    # Animate second column with a slight delay
                     with summary_cols[1]:
                         # Add small delay for second column appearance
                         time.sleep(0.3)
@@ -1021,32 +1026,47 @@ with tab4:
                         
                         # Show all the even money bets
                         st.markdown("#### Even Money Bets:")
-            if specific_recommendations["red_black"]["recommendation"]:
-                st.markdown(f"**Color:** {specific_recommendations['red_black']['recommendation'].upper()}")
-            
-            if specific_recommendations["even_odd"]["recommendation"]:
-                st.markdown(f"**Parity:** {specific_recommendations['even_odd']['recommendation'].upper()}")
-            
-            if specific_recommendations["high_low"]["recommendation"]:
-                st.markdown(f"**Range:** {specific_recommendations['high_low']['recommendation'].upper()}")
-            
-            # Show all the column/dozen bets
-            st.markdown("#### Column/Dozen Bets:")
-            if specific_recommendations["columns"]["recommendation"]:
-                st.markdown(f"**Column:** {specific_recommendations['columns']['recommendation']}")
-            
-            if specific_recommendations["dozens"]["recommendation"]:
-                st.markdown(f"**Dozen:** {specific_recommendations['dozens']['recommendation']}")
-                
-            # Indicate if using fast mode
-            st.markdown("---")
-            if st.session_state.fast_mode:
-                st.caption("⚡ Analysis completed in fast mode for 8-second window")
-            else:
-                st.caption("🔍 Comprehensive analysis mode")
+                        
+                        if specific_recommendations["red_black"]["recommendation"]:
+                            time.sleep(0.05)  # Subtle animation delay
+                            st.markdown(f"**Color:** {specific_recommendations['red_black']['recommendation'].upper()}")
+                        
+                        if specific_recommendations["even_odd"]["recommendation"]:
+                            time.sleep(0.05)  # Subtle animation delay
+                            st.markdown(f"**Parity:** {specific_recommendations['even_odd']['recommendation'].upper()}")
+                        
+                        if specific_recommendations["high_low"]["recommendation"]:
+                            time.sleep(0.05)  # Subtle animation delay
+                            st.markdown(f"**Range:** {specific_recommendations['high_low']['recommendation'].upper()}")
+                        
+                        # Show all the column/dozen bets
+                        time.sleep(0.1)  # Slightly longer delay between sections
+                        st.markdown("#### Column/Dozen Bets:")
+                        
+                        if specific_recommendations["columns"]["recommendation"]:
+                            st.markdown(f"**Column:** {specific_recommendations['columns']['recommendation']}")
+                        
+                        if specific_recommendations["dozens"]["recommendation"]:
+                            st.markdown(f"**Dozen:** {specific_recommendations['dozens']['recommendation']}")
+                            
+                        # Indicate if using fast mode
+                        time.sleep(0.1)  # Final animation delay
+                        st.markdown("---")
+                        if st.session_state.fast_mode:
+                            st.caption("⚡ Analysis completed in fast mode for 8-second window")
+                        else:
+                            st.caption("🔍 Comprehensive analysis mode")
         
-        # Create tabs for different bet types
-        bet_tabs = st.tabs(["Numbers", "Split Bets", "Corner Bets", "Columns/Dozens", "Even Money Bets"])
+        # Create animated display of tabs section
+        with st.spinner("Loading detailed recommendations..."):
+            # Add a slight delay before showing the detailed tabs for a smoother transition
+            time.sleep(0.4)
+            
+            # Add an informational message to introduce the detailed tabs
+            st.info("Explore detailed betting recommendations in the tabs below")
+            
+            # Create tabs for different bet types with a visual transition
+            bet_tabs = st.tabs(["Numbers", "Split Bets", "Corner Bets", "Columns/Dozens", "Even Money Bets"])
         
         with bet_tabs[0]:
             st.subheader("🎯 Single Number Bets")
@@ -1276,8 +1296,11 @@ with tab4:
                 if current_bankroll <= 0:
                     break
             
-            # Display simulation results
-            st.subheader("Simulation Results")
+            # Display simulation results with animated appearance
+            with st.spinner("Generating simulation results..."):
+                time.sleep(0.5)  # Add a brief delay for animation effect
+                st.success("Simulation completed successfully!")
+                st.subheader("Simulation Results")
             
             # Key metrics
             col1, col2, col3 = st.columns(3)
