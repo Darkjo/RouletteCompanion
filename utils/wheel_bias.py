@@ -236,7 +236,23 @@ class WheelBiasDetector:
         # Perform chi-square test for quadrant distribution
         observed = list(quadrant_counts.values())
         expected = [expected_count] * 4
-        chi2_stat, p_value = stats.chisquare(observed, expected)
+        
+        # Fix for potential floating point precision errors
+        sum_observed = sum(observed)
+        sum_expected = sum(expected)
+        
+        if abs(sum_observed - sum_expected) > 1e-8:
+            # Adjust expected values to match observed sum exactly
+            adjustment_factor = sum_observed / sum_expected
+            expected = [val * adjustment_factor for val in expected]
+        
+        try:
+            chi2_stat, p_value = stats.chisquare(observed, expected)
+        except ValueError:
+            # Fallback calculation if chi-square still fails
+            chi2_stat = sum((obs - exp)**2 / exp for obs, exp in zip(observed, expected))
+            # Approximate p-value (with 3 degrees of freedom for 4 quadrants)
+            p_value = 1 - stats.chi2.cdf(chi2_stat, 3)
         
         # Diamond sector analysis (for European wheel)
         diamond_analysis = None
@@ -270,7 +286,25 @@ class WheelBiasDetector:
             # Perform chi-square test for diamond sector distribution
             observed_diamond = list(diamond_counts.values())
             expected_diamond = [expected_diamond_count] * 4
-            diamond_chi2_stat, diamond_p_value = stats.chisquare(observed_diamond, expected_diamond)
+            
+            # Fix for potential floating point precision errors in chi-square test
+            # Make sure the sum of observed matches exactly the sum of expected
+            sum_observed = sum(observed_diamond)
+            sum_expected = sum(expected_diamond)
+            
+            if abs(sum_observed - sum_expected) > 1e-8:  # If there's a small difference
+                # Adjust the expected values proportionally
+                adjustment_factor = sum_observed / sum_expected
+                expected_diamond = [val * adjustment_factor for val in expected_diamond]
+            
+            # Now perform the chi-square test
+            try:
+                diamond_chi2_stat, diamond_p_value = stats.chisquare(observed_diamond, expected_diamond)
+            except ValueError:
+                # If there's still an error, use a fallback method
+                diamond_chi2_stat = sum((obs - exp)**2 / exp for obs, exp in zip(observed_diamond, expected_diamond))
+                # Approximate p-value (with 3 degrees of freedom for 4 sectors)
+                diamond_p_value = 1 - stats.chi2.cdf(diamond_chi2_stat, 3)
             
             diamond_analysis = {
                 "sector_counts": diamond_counts,

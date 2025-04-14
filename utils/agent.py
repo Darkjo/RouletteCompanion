@@ -388,6 +388,12 @@ class RLAgent:
             # Sort by deviation and take top 2
             split_bets = sorted(split_bets, key=lambda x: x['deviation'], reverse=True)[:2]
             result["split_bets"] = split_bets
+            
+        # 8. Corner Bet Analysis
+        if hot_numbers:
+            corner_bets = self._find_corner_bets(hot_numbers, number_counts, total_spins, expected_prob)
+            if corner_bets:
+                result["corner_bets"] = corner_bets
         
         # Add explanation based on amount of data
         if total_spins < 20:
@@ -460,3 +466,83 @@ class RLAgent:
                 return [32, 34, 36]
             else:
                 return [number-1, number+1, number-3, number+3]
+                
+    def _find_corner_bets(self, hot_numbers, number_counts, total_spins, expected_prob):
+        """
+        Find potential corner bets (4 numbers in a square) based on hot numbers.
+        
+        Args:
+            hot_numbers (list): List of dictionaries containing hot number data
+            number_counts (Series): Frequency counts of all numbers
+            total_spins (int): Total number of spins
+            expected_prob (float): Expected probability for a single number
+            
+        Returns:
+            list: List of potential corner bet recommendations
+        """
+        if not hot_numbers:
+            return []
+        
+        # Extract just the numbers from the hot_numbers list
+        hot_nums = [int(n['number']) for n in hot_numbers if str(n['number']).isdigit()]
+        
+        # Dictionary to map hot numbers to their confidence scores
+        confidence_map = {int(n['number']): n['confidence'] for n in hot_numbers if str(n['number']).isdigit()}
+        
+        # Define all valid corner bets on a standard roulette table
+        # Each corner is defined by its top-left number, and includes that number plus the 3 adjacent numbers
+        all_corners = []
+        
+        # Generate all possible corner bets (except those involving 0)
+        for row in range(1, 12):  # 12 rows on standard layout
+            for col in range(1, 3):  # 2 columns (since we're defining by top-left corner)
+                base_num = (row - 1) * 3 + col
+                if base_num <= 34:  # Ensure we don't go past 36
+                    corner = [base_num, base_num + 1, base_num + 3, base_num + 4]
+                    all_corners.append(corner)
+        
+        # Find corners containing at least 1 hot number
+        potential_corners = []
+        
+        for corner in all_corners:
+            # Count how many numbers in this corner are hot
+            hot_matches = [num for num in corner if num in hot_nums]
+            
+            if hot_matches:  # At least 1 number in the corner is hot
+                # Calculate combined frequency of all 4 numbers
+                combined_count = sum(number_counts.get(str(num), 0) for num in corner)
+                combined_frequency = combined_count / total_spins
+                
+                # Expected frequency for 4 numbers
+                expected_corner_freq = expected_prob * 4
+                corner_deviation = combined_frequency / expected_corner_freq
+                
+                if corner_deviation > 1.2:  # Threshold for recommendation
+                    # Calculate confidence based on deviation and number of hot matches
+                    base_confidence = min(0.8, (corner_deviation - 1) * 0.8)
+                    
+                    # Bonus confidence if multiple hot numbers in corner
+                    hot_bonus = len(hot_matches) * 0.05
+                    
+                    # Additional bonus for high-confidence hot numbers
+                    confidence_bonus = sum(confidence_map.get(num, 0) for num in hot_matches) / 10
+                    
+                    final_confidence = min(0.9, base_confidence + hot_bonus + confidence_bonus)
+                    
+                    potential_corners.append({
+                        'numbers': f"{corner[0]}/{corner[1]}/{corner[2]}/{corner[3]}",
+                        'combined_count': combined_count,
+                        'hot_matches': len(hot_matches),
+                        'deviation': round(corner_deviation, 2),
+                        'confidence': round(final_confidence, 2)
+                    })
+        
+        # Sort by confidence, then by deviation
+        sorted_corners = sorted(
+            potential_corners,
+            key=lambda x: (x['confidence'], x['deviation']),
+            reverse=True
+        )
+        
+        # Return top 3 corners
+        return sorted_corners[:3]
