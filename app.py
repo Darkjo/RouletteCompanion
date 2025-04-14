@@ -582,6 +582,135 @@ with tab4:
             st.markdown(f"**Best For:** {strategy_details.get('best_for', 'N/A')}")
             st.markdown(f"**Worst For:** {strategy_details.get('worst_for', 'N/A')}")
         
+        # New section for specific bet recommendations based on statistical analysis
+        st.subheader("Statistical Bet Recommendations")
+        st.write("""
+        Below are specific betting recommendations based on statistical analysis 
+        of your spin history. Each recommendation includes a confidence score 
+        indicating how strongly the pattern deviates from random expectation.
+        """)
+        
+        # Get specific bet recommendations
+        specific_recommendations = st.session_state.agent.get_specific_bet_recommendations(
+            spins_df, 
+            current_roulette_type, 
+            st.session_state.bankroll
+        )
+        
+        # Display recommendation confidence explanation
+        st.info(specific_recommendations["confidence_explanation"])
+        
+        if specific_recommendations.get("highest_confidence", 0) > 0:
+            st.success(f"Recommended bet size: ${specific_recommendations.get('recommended_bet_size', 0):.2f}")
+        
+        # Create tabs for different bet types
+        bet_tabs = st.tabs(["Numbers", "Split Bets", "Columns/Dozens", "Even Money Bets"])
+        
+        with bet_tabs[0]:
+            st.subheader("🎯 Single Number Bets")
+            if specific_recommendations["single_numbers"]:
+                for num_data in specific_recommendations["single_numbers"]:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"**Number {num_data['number']}** - Appeared {num_data['count']} times ({num_data['frequency']})")
+                        st.markdown(f"Deviation from expected: {num_data['deviation']}x")
+                    with col2:
+                        # Display confidence as progress bar
+                        confidence = num_data['confidence'] * 100
+                        st.progress(num_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+            else:
+                st.write("No statistically significant hot numbers detected in your data.")
+        
+        with bet_tabs[1]:
+            st.subheader("🔀 Split Bet Recommendations")
+            if specific_recommendations["split_bets"]:
+                for split_data in specific_recommendations["split_bets"]:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"**Split {split_data['numbers']}** - Combined occurrences: {split_data['combined_count']}")
+                        st.markdown(f"Deviation from expected: {split_data['deviation']}x")
+                    with col2:
+                        # Display confidence as progress bar
+                        confidence = split_data['confidence'] * 100
+                        st.progress(split_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+            else:
+                st.write("No statistically significant split bets detected in your data.")
+        
+        with bet_tabs[2]:
+            st.subheader("🎯 Column and Dozen Bets")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("##### Column Bets")
+                if specific_recommendations["columns"]["recommendation"]:
+                    col_data = specific_recommendations["columns"]
+                    st.markdown(f"**Recommendation: {col_data['recommendation']}**")
+                    counts = col_data["counts"]
+                    for col_name, count in counts.items():
+                        st.markdown(f"{col_name}: {count} spins")
+                    confidence = col_data['confidence'] * 100
+                    st.progress(col_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+                else:
+                    st.write("No statistically significant column bias detected.")
+            
+            with col2:
+                st.markdown("##### Dozen Bets")
+                if specific_recommendations["dozens"]["recommendation"]:
+                    dozen_data = specific_recommendations["dozens"]
+                    st.markdown(f"**Recommendation: {dozen_data['recommendation']}**")
+                    counts = dozen_data["counts"]
+                    for dozen_name, count in counts.items():
+                        st.markdown(f"{dozen_name}: {count} spins")
+                    confidence = dozen_data['confidence'] * 100
+                    st.progress(dozen_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+                else:
+                    st.write("No statistically significant dozen bias detected.")
+        
+        with bet_tabs[3]:
+            st.subheader("💰 Even Money Bets")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("##### Red/Black")
+                if specific_recommendations["red_black"]["recommendation"]:
+                    color_data = specific_recommendations["red_black"]
+                    st.markdown(f"**Recommendation: {color_data['recommendation']}**")
+                    counts = color_data["counts"]
+                    for color, count in counts.items():
+                        st.markdown(f"{color.capitalize()}: {count} spins")
+                    confidence = color_data['confidence'] * 100
+                    st.progress(color_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+                else:
+                    st.write("No significant color bias detected.")
+                    
+            with col2:
+                st.markdown("##### Even/Odd")
+                if specific_recommendations["even_odd"]["recommendation"]:
+                    parity_data = specific_recommendations["even_odd"]
+                    st.markdown(f"**Recommendation: {parity_data['recommendation']}**")
+                    counts = parity_data["counts"]
+                    for parity, count in counts.items():
+                        st.markdown(f"{parity.capitalize()}: {count} spins")
+                    confidence = parity_data['confidence'] * 100
+                    st.progress(parity_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+                else:
+                    st.write("No significant even/odd bias detected.")
+                    
+            with col3:
+                st.markdown("##### High/Low")
+                if specific_recommendations["high_low"]["recommendation"]:
+                    range_data = specific_recommendations["high_low"]
+                    st.markdown(f"**Recommendation: {range_data['recommendation']}**")
+                    counts = range_data["counts"]
+                    for range_name, count in counts.items():
+                        st.markdown(f"{range_name.capitalize()}: {count} spins")
+                    confidence = range_data['confidence'] * 100
+                    st.progress(range_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+                else:
+                    st.write("No significant high/low bias detected.")
+        
         # Simulation section
         st.subheader("Strategy Simulation")
         
