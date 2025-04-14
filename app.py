@@ -845,7 +845,7 @@ with tab4:
             st.success(f"Recommended bet size: ${specific_recommendations.get('recommended_bet_size', 0):.2f}")
         
         # Create tabs for different bet types
-        bet_tabs = st.tabs(["Numbers", "Split Bets", "Columns/Dozens", "Even Money Bets"])
+        bet_tabs = st.tabs(["Numbers", "Split Bets", "Corner Bets", "Columns/Dozens", "Even Money Bets"])
         
         with bet_tabs[0]:
             st.subheader("🎯 Single Number Bets")
@@ -878,6 +878,23 @@ with tab4:
                 st.write("No statistically significant split bets detected in your data.")
         
         with bet_tabs[2]:
+            st.subheader("🔳 Corner Bet Recommendations")
+            if "corner_bets" in specific_recommendations and specific_recommendations["corner_bets"]:
+                for corner_data in specific_recommendations["corner_bets"]:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"**Corner {corner_data['numbers']}** - Combined occurrences: {corner_data['combined_count']}")
+                        st.markdown(f"Deviation from expected: {corner_data['deviation']}x")
+                        if 'hot_matches' in corner_data:
+                            st.markdown(f"Hot numbers in this corner: {corner_data['hot_matches']}")
+                    with col2:
+                        # Display confidence as progress bar
+                        confidence = corner_data['confidence'] * 100
+                        st.progress(corner_data['confidence'], text=f"Confidence: {confidence:.0f}%")
+            else:
+                st.write("No statistically significant corner bets detected in your data.")
+        
+        with bet_tabs[3]:
             st.subheader("🎯 Column and Dozen Bets")
             
             col1, col2 = st.columns(2)
@@ -908,7 +925,7 @@ with tab4:
                 else:
                     st.write("No statistically significant dozen bias detected.")
         
-        with bet_tabs[3]:
+        with bet_tabs[4]:
             st.subheader("💰 Even Money Bets")
             
             col1, col2, col3 = st.columns(3)
