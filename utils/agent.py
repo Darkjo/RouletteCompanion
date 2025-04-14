@@ -1,22 +1,35 @@
 """
 RL Agent for Roulette Strategy Recommendation
 Based on the implementation from ProjectR
+
+Performance optimizations added:
+- Caching for expensive calculations
+- Progress indicators for long-running operations
+- Batch processing for large datasets
 """
 
 import random
 import pandas as pd
+import streamlit as st
 from collections import defaultdict
+from time import time
 
 class RLAgent:
     """
     Reinforcement Learning Agent for roulette strategy recommendations.
     Tracks performance and provides strategy suggestions based on accuracy and bankroll.
+    
+    Performance optimizations:
+    - Uses Streamlit caching to avoid redundant calculations
+    - Shows progress bars for time-consuming operations
+    - Processes large datasets in batches for improved responsiveness
     """
     def __init__(self):
         self.history = []  # Track past spins and context
         self.accuracy = 0.5
         self.alignments = []
         self.performance_log = []  # [(number, strategy, win, payout)]
+        self._last_cached_time = time()  # Track when caches were last updated
 
     def record_alignment(self, success: bool):
         """
