@@ -858,16 +858,12 @@ with tab4:
         """)
         
         # Get specific bet recommendations
-        # Initialize fast_mode toggle if not already present
-        if 'fast_mode' not in locals():
-            fast_mode = True
-        
-        # Pass the fast_mode parameter to the analysis
+        # Pass the fast_mode parameter from session state to the analysis
         specific_recommendations = st.session_state.agent.get_specific_bet_recommendations(
             spins_df, 
             current_roulette_type, 
             st.session_state.bankroll,
-            fast_mode
+            st.session_state.fast_mode
         )
         
         # Display recommendation confidence explanation
@@ -990,7 +986,7 @@ with tab4:
                 
             # Indicate if using fast mode
             st.markdown("---")
-            if fast_mode:
+            if st.session_state.fast_mode:
                 st.caption("⚡ Analysis completed in fast mode for 8-second window")
             else:
                 st.caption("🔍 Comprehensive analysis mode")
