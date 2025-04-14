@@ -146,15 +146,17 @@ class RLAgent:
         self.accuracy = 0.5
 
     @st.cache_data(ttl=60)  # Cache for 60 seconds
-    def get_cached_summary(self):
+    def get_cached_summary(_self):
         """
         Cached version of get_summary to avoid redundant calculations.
         The TTL of 60 seconds ensures the cache is refreshed periodically.
+        The leading underscore in _self is required for Streamlit caching to work,
+        as RLAgent objects are not hashable.
         
         Returns:
             list: Summary statistics for each strategy
         """
-        return self._calculate_summary()
+        return _self._calculate_summary()
     
     def get_summary(self):
         """
@@ -223,9 +225,11 @@ class RLAgent:
         return summary_list
         
     @st.cache_data(ttl=300)  # Cache for 5 minutes
-    def get_cached_bet_recommendations(self, spins_df, roulette_type, bankroll):
+    def get_cached_bet_recommendations(_self, spins_df, roulette_type, bankroll):
         """
         Cached version of get_specific_bet_recommendations.
+        The leading underscore in _self is required for Streamlit caching to work,
+        as RLAgent objects are not hashable.
         
         Args:
             spins_df (pd.DataFrame): DataFrame with spin data
@@ -237,7 +241,7 @@ class RLAgent:
         """
         # Create a hash of the dataframe to use as part of the cache key
         # This ensures we recompute if the data changes
-        return self._calculate_bet_recommendations(spins_df, roulette_type, bankroll)
+        return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll)
     
     def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll):
         """
