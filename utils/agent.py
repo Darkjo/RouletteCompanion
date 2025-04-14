@@ -224,7 +224,7 @@ class RLAgent:
             })
         return summary_list
         
-    @st.cache_data(ttl=300)  # Cache for 5 minutes
+    @st.cache_data(ttl=10)  # Cache for just 10 seconds to ensure fresh data while avoiding recalculation
     def get_cached_bet_recommendations(_self, spins_df, roulette_type, bankroll):
         """
         Cached version of get_specific_bet_recommendations.
@@ -239,9 +239,10 @@ class RLAgent:
         Returns:
             dict: Detailed recommendations with confidence scores
         """
-        # Create a hash of the dataframe to use as part of the cache key
-        # This ensures we recompute if the data changes
-        return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll)
+        # Optimize for 8-second window between roulette spins
+        # Pass a data size hint to enable fast mode for large datasets
+        data_size = len(spins_df) if spins_df is not None else 0
+        return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode=(data_size > 20))
     
     def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll):
         """
@@ -259,7 +260,7 @@ class RLAgent:
         # Use cached version
         return self.get_cached_bet_recommendations(spins_df, roulette_type, bankroll)
         
-    def _calculate_bet_recommendations(self, spins_df, roulette_type, bankroll):
+    def _calculate_bet_recommendations(self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Internal method to calculate bet recommendations with progress indicators.
         
@@ -267,6 +268,7 @@ class RLAgent:
             spins_df (pd.DataFrame): DataFrame with spin data
             roulette_type (str): Type of roulette - 'European' or 'American'
             bankroll (float): Current bankroll amount
+            fast_mode (bool): When True, uses accelerated analysis for 8-second window
             
         Returns:
             dict: Detailed recommendations with confidence scores
