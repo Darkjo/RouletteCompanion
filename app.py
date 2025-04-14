@@ -1,524 +1,538 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-import os
 import json
+import os
 
-from utils.roulette_logic import RouletteGame
-from utils.data_manager import DataManager
-from utils.betting_strategies import BettingStrategies
-from utils.visualization import Visualization
+from utils.roulette_data import RouletteData
+from utils.analysis import RouletteAnalyzer
+from utils.betting_strategies import BettingStrategist
+from utils.visualization import RouletteVisualizer
 
 # Set page configuration
 st.set_page_config(
-    page_title="Roulette Tracker & Analyzer",
+    page_title="Roulette Tracker and Analyzer",
     page_icon="🎰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Initialize session state variables if they don't exist
-if 'data_manager' not in st.session_state:
-    st.session_state.data_manager = DataManager()
-
+if 'roulette_data' not in st.session_state:
+    st.session_state.roulette_data = RouletteData()
+    
+if 'analyzer' not in st.session_state:
+    st.session_state.analyzer = RouletteAnalyzer()
+    
+if 'strategist' not in st.session_state:
+    st.session_state.strategist = BettingStrategist()
+    
+if 'visualizer' not in st.session_state:
+    st.session_state.visualizer = RouletteVisualizer()
+    
 if 'current_session' not in st.session_state:
-    st.session_state.current_session = None
-
+    st.session_state.current_session = "Default Session"
+    
 if 'sessions' not in st.session_state:
-    st.session_state.sessions = []
+    st.session_state.sessions = ["Default Session"]
 
-if 'roulette_type' not in st.session_state:
-    st.session_state.roulette_type = "European"
+# Application title
+st.title("🎰 Roulette Tracker and Analyzer")
 
-# Main app title
-st.title("🎰 Roulette Tracker & Analyzer")
-
-# Sidebar
+# Sidebar for settings and navigation
 with st.sidebar:
     st.header("Settings")
     
     # Roulette type selection
     roulette_type = st.radio(
-        "Roulette Type",
-        ["European", "American"],
-        index=0 if st.session_state.roulette_type == "European" else 1
+        "Select Roulette Type:",
+        options=["European", "American"],
+        index=0
     )
-    
-    if roulette_type != st.session_state.roulette_type:
-        st.session_state.roulette_type = roulette_type
-        st.rerun()
     
     # Session management
     st.subheader("Session Management")
-    session_action = st.radio("Session Action", ["Continue Current", "Start New", "Load Previous"])
     
-    if session_action == "Start New":
-        session_name = st.text_input("Session Name", f"Session {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        if st.button("Create New Session"):
-            st.session_state.current_session = session_name
-            if session_name not in st.session_state.sessions:
-                st.session_state.sessions.append(session_name)
-                st.session_state.data_manager.create_session(session_name, st.session_state.roulette_type)
-            st.success(f"Created session: {session_name}")
-            st.rerun()
-    
-    elif session_action == "Load Previous":
-        if not st.session_state.sessions:
-            st.warning("No saved sessions found.")
+    # Create a new session
+    new_session_name = st.text_input("New Session Name")
+    if st.button("Create Session") and new_session_name:
+        if new_session_name not in st.session_state.sessions:
+            st.session_state.sessions.append(new_session_name)
+            st.session_state.current_session = new_session_name
+            st.success(f"Created session: {new_session_name}")
+            st.session_state.roulette_data.create_session(new_session_name, roulette_type)
         else:
-            selected_session = st.selectbox("Select Session", st.session_state.sessions)
-            if st.button("Load Session"):
-                st.session_state.current_session = selected_session
-                st.success(f"Loaded session: {selected_session}")
-                st.rerun()
+            st.error("Session name already exists!")
     
-    # Display current session
-    if st.session_state.current_session:
-        st.info(f"Current Session: {st.session_state.current_session}")
-        # Show delete button
-        if st.button("Delete Current Session"):
-            if st.session_state.current_session in st.session_state.sessions:
-                st.session_state.sessions.remove(st.session_state.current_session)
-                st.session_state.data_manager.delete_session(st.session_state.current_session)
-                st.session_state.current_session = None
-                st.success("Session deleted")
-                st.rerun()
-    else:
-        st.warning("No active session. Create or load a session to begin.")
+    # Select an existing session
+    st.session_state.current_session = st.selectbox(
+        "Select Session:",
+        options=st.session_state.sessions,
+        index=st.session_state.sessions.index(st.session_state.current_session)
+    )
+    
+    # Delete the current session
+    if st.button("Delete Current Session") and len(st.session_state.sessions) > 1:
+        session_to_delete = st.session_state.current_session
+        session_index = st.session_state.sessions.index(session_to_delete)
+        st.session_state.sessions.remove(session_to_delete)
+        st.session_state.current_session = st.session_state.sessions[0]
+        st.session_state.roulette_data.delete_session(session_to_delete)
+        st.success(f"Deleted session: {session_to_delete}")
+        st.rerun()
+    
+    # Data management
+    st.subheader("Data Management")
+    
+    # Save data to file
+    if st.button("Save All Data"):
+        success = st.session_state.roulette_data.save_data()
+        if success:
+            st.success("Data saved successfully!")
+        else:
+            st.error("Failed to save data.")
+    
+    # Load data from file
+    if st.button("Load Data"):
+        success = st.session_state.roulette_data.load_data()
+        if success:
+            # Update session list
+            st.session_state.sessions = st.session_state.roulette_data.get_sessions()
+            if st.session_state.sessions:
+                st.session_state.current_session = st.session_state.sessions[0]
+            else:
+                st.session_state.sessions = ["Default Session"]
+                st.session_state.current_session = "Default Session"
+                st.session_state.roulette_data.create_session("Default Session", "European")
+            st.success("Data loaded successfully!")
+            st.rerun()
+        else:
+            st.error("No saved data found or error loading data.")
 
-# Main content
-if st.session_state.current_session:
-    tabs = st.tabs(["Spin Tracker", "Analysis", "Betting Suggestions", "History"])
+# Main content area with tabs
+tab1, tab2, tab3, tab4 = st.tabs(["Spin Tracker", "Analysis", "Betting Suggestions", "Statistics"])
+
+# Tab 1: Spin Tracker
+with tab1:
+    st.header(f"Spin Tracker - {st.session_state.current_session}")
     
-    # Get session data
-    session_data = st.session_state.data_manager.get_session_data(st.session_state.current_session)
-    roulette_type = session_data.get('roulette_type', st.session_state.roulette_type)
+    # Get current roulette type for this session
+    current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
     
-    # Initialize roulette game with the correct type
-    roulette_game = RouletteGame(roulette_type)
+    # Display current roulette type
+    st.info(f"Current Roulette Type: {current_roulette_type}")
     
-    # Initialize visualization
-    viz = Visualization(roulette_game)
+    # Input section for new spins
+    st.subheader("Record New Spin")
     
-    # Initialize betting strategies
-    betting_strategies = BettingStrategies(roulette_game)
+    col1, col2 = st.columns(2)
     
-    # Tab 1: Spin Tracker
-    with tabs[0]:
-        st.header("Record Spin Results")
+    with col1:
+        # Input for spin number
+        if current_roulette_type == "European":
+            spin_number = st.number_input("Spin Result (0-36):", min_value=0, max_value=36, step=1)
+        else:  # American
+            spin_number = st.number_input("Spin Result (00, 0-36):", min_value=-1, max_value=36, step=1, 
+                                          help="Enter -1 for '00' (American roulette)")
+    
+    with col2:
+        # Add timestamp
+        timestamp = st.date_input("Spin Date:", value=datetime.now().date())
+        time_input = st.time_input("Spin Time:", value=datetime.now().time())
         
-        col1, col2 = st.columns([1, 2])
+    # Combine date and time
+    spin_timestamp = datetime.combine(timestamp, time_input)
+    
+    # Button to add the spin
+    if st.button("Add Spin Result"):
+        # Convert -1 to '00' for American roulette
+        display_number = '00' if spin_number == -1 else str(spin_number)
+        
+        # Add spin to current session
+        st.session_state.roulette_data.add_spin(
+            session_name=st.session_state.current_session,
+            number=display_number,
+            timestamp=spin_timestamp
+        )
+        
+        st.success(f"Added spin result: {display_number}")
+    
+    # Display the current session's spin history
+    st.subheader("Spin History")
+    
+    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    
+    if spins_df is not None and not spins_df.empty:
+        # Button to remove the last spin
+        if st.button("Remove Last Spin") and len(spins_df) > 0:
+            st.session_state.roulette_data.remove_last_spin(st.session_state.current_session)
+            st.success("Last spin removed.")
+            st.rerun()
+        
+        # Display recent spins
+        st.dataframe(spins_df.sort_values(by='timestamp', ascending=False).head(10))
+        
+        # Visual representation of recent spins
+        st.subheader("Recent Spins Visualization")
+        fig = st.session_state.visualizer.plot_recent_spins(spins_df, current_roulette_type)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No spins recorded in this session yet. Add some spins to get started!")
+
+# Tab 2: Analysis
+with tab2:
+    st.header(f"Analysis - {st.session_state.current_session}")
+    
+    # Get data for current session
+    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    
+    if spins_df is not None and not spins_df.empty:
+        # Analysis options
+        analysis_option = st.selectbox(
+            "Select Analysis Type:",
+            ["Number Frequency", "Even/Odd Distribution", "Red/Black Distribution", 
+             "Dozens Distribution", "Columns Distribution", "High/Low Distribution"]
+        )
+        
+        # Perform the selected analysis
+        if analysis_option == "Number Frequency":
+            st.subheader("Number Frequency Analysis")
+            fig = st.session_state.visualizer.plot_number_frequency(spins_df, 
+                                                                   st.session_state.roulette_data.get_session_type(st.session_state.current_session))
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display hot and cold numbers
+            hot_numbers, cold_numbers = st.session_state.analyzer.get_hot_cold_numbers(spins_df, 
+                                                                                      st.session_state.roulette_data.get_session_type(st.session_state.current_session))
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Hot Numbers (Most Frequent)")
+                st.write(hot_numbers)
+            
+            with col2:
+                st.subheader("Cold Numbers (Least Frequent)")
+                st.write(cold_numbers)
+        
+        elif analysis_option == "Even/Odd Distribution":
+            st.subheader("Even/Odd Distribution Analysis")
+            fig = st.session_state.visualizer.plot_even_odd_distribution(spins_df)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display even/odd trend
+            even_odd_trend = st.session_state.analyzer.get_even_odd_trend(spins_df)
+            st.subheader("Even/Odd Trend Analysis")
+            st.write(even_odd_trend)
+        
+        elif analysis_option == "Red/Black Distribution":
+            st.subheader("Red/Black Distribution Analysis")
+            fig = st.session_state.visualizer.plot_red_black_distribution(spins_df)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display red/black trend
+            red_black_trend = st.session_state.analyzer.get_red_black_trend(spins_df)
+            st.subheader("Red/Black Trend Analysis")
+            st.write(red_black_trend)
+        
+        elif analysis_option == "Dozens Distribution":
+            st.subheader("Dozens Distribution Analysis")
+            fig = st.session_state.visualizer.plot_dozens_distribution(spins_df)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display dozens trend
+            dozens_trend = st.session_state.analyzer.get_dozens_trend(spins_df)
+            st.subheader("Dozens Trend Analysis")
+            st.write(dozens_trend)
+        
+        elif analysis_option == "Columns Distribution":
+            st.subheader("Columns Distribution Analysis")
+            fig = st.session_state.visualizer.plot_columns_distribution(spins_df)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display columns trend
+            columns_trend = st.session_state.analyzer.get_columns_trend(spins_df)
+            st.subheader("Columns Trend Analysis")
+            st.write(columns_trend)
+        
+        elif analysis_option == "High/Low Distribution":
+            st.subheader("High/Low Distribution Analysis")
+            fig = st.session_state.visualizer.plot_high_low_distribution(spins_df)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display high/low trend
+            high_low_trend = st.session_state.analyzer.get_high_low_trend(spins_df)
+            st.subheader("High/Low Trend Analysis")
+            st.write(high_low_trend)
+        
+        # Pattern detection
+        st.subheader("Pattern Detection")
+        repeating_patterns = st.session_state.analyzer.find_repeating_patterns(spins_df)
+        
+        if repeating_patterns:
+            st.write("Detected repeating patterns:")
+            for pattern in repeating_patterns:
+                st.write(f"Pattern: {pattern['pattern']}, Occurrences: {pattern['count']}")
+        else:
+            st.info("No significant repeating patterns detected.")
+    
+    else:
+        st.info("No spin data available for analysis. Please add spins in the Spin Tracker tab.")
+
+# Tab 3: Betting Suggestions
+with tab3:
+    st.header(f"Betting Suggestions - {st.session_state.current_session}")
+    
+    # Get data for current session
+    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    
+    if spins_df is not None and not spins_df.empty:
+        # Betting strategy selection
+        st.subheader("Select Betting Strategy")
+        strategy = st.selectbox(
+            "Strategy:",
+            ["Hot Numbers", "Due Numbers", "Pattern Based", "Martingale", "D'Alembert", "Fibonacci"]
+        )
+        
+        # Get current roulette type
+        current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+        
+        # Generate betting suggestions based on selected strategy
+        suggestions = st.session_state.strategist.get_betting_suggestions(
+            spins_df, 
+            strategy, 
+            current_roulette_type
+        )
+        
+        # Display suggestions
+        st.subheader("Suggested Bets:")
+        
+        if suggestions:
+            for category, bets in suggestions.items():
+                st.write(f"**{category}:**")
+                if isinstance(bets, list):
+                    for bet in bets:
+                        st.write(f"- {bet}")
+                else:
+                    st.write(f"- {bets}")
+        else:
+            st.info("Not enough data to generate reliable betting suggestions.")
+        
+        # Strategy explanation
+        st.subheader("Strategy Explanation")
+        
+        if strategy == "Hot Numbers":
+            st.write("""
+            **Hot Numbers Strategy** focuses on betting on numbers that have appeared most frequently in recent spins. 
+            The theory is that certain numbers may be "hot" due to subtle biases in the wheel or ball.
+            
+            **Pros:**
+            - Can capitalize on physical biases if they exist
+            - Simple to understand and implement
+            
+            **Cons:**
+            - Past results don't guarantee future outcomes
+            - No mathematical edge in the long run on a fair wheel
+            """)
+        
+        elif strategy == "Due Numbers":
+            st.write("""
+            **Due Numbers Strategy** (also called the Law of Averages) assumes that numbers that haven't appeared for a long time are "due" to appear soon.
+            
+            **Pros:**
+            - Can capitalize on the regression to the mean phenomenon
+            - Provides a structured approach to number selection
+            
+            **Cons:**
+            - Suffers from the gambler's fallacy - past results don't influence future spins
+            - No mathematical advantage in the long run
+            """)
+        
+        elif strategy == "Pattern Based":
+            st.write("""
+            **Pattern Based Strategy** looks for repeating sequences or patterns in the spin history and bets based on expected continuations.
+            
+            **Pros:**
+            - May identify actual biases if they exist
+            - More sophisticated than simpler strategies
+            
+            **Cons:**
+            - Patterns in truly random events are usually coincidental
+            - Complex to implement correctly
+            """)
+        
+        elif strategy == "Martingale":
+            st.write("""
+            **Martingale Strategy** involves doubling your bet after each loss, so that the first win recovers all previous losses plus a profit equal to the original stake.
+            
+            **Pros:**
+            - Simple to understand and implement
+            - Can work in the short term with even-money bets
+            
+            **Cons:**
+            - Requires large bankroll for sustained losing streaks
+            - Table limits eventually prevent doubling
+            - Long-term expected value remains negative
+            """)
+        
+        elif strategy == "D'Alembert":
+            st.write("""
+            **D'Alembert Strategy** is a more conservative progression system where you increase your bet by one unit after a loss and decrease it by one unit after a win.
+            
+            **Pros:**
+            - Less aggressive than Martingale
+            - Smaller bankroll requirements
+            
+            **Cons:**
+            - Slower recovery from losses
+            - Still has a negative expected value long-term
+            """)
+        
+        elif strategy == "Fibonacci":
+            st.write("""
+            **Fibonacci Strategy** uses the Fibonacci sequence to determine bet sizes, increasing bets in the Fibonacci pattern after losses and moving back two steps after wins.
+            
+            **Pros:**
+            - More measured progression than Martingale
+            - Based on a natural mathematical sequence
+            
+            **Cons:**
+            - Can still lead to high bets after a losing streak
+            - Negative expected value in the long run
+            """)
+    
+    else:
+        st.info("No spin data available for betting suggestions. Please add spins in the Spin Tracker tab.")
+
+# Tab 4: Statistics
+with tab4:
+    st.header(f"Statistics - {st.session_state.current_session}")
+    
+    # Get data for current session
+    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    
+    if spins_df is not None and not spins_df.empty:
+        # Overall session statistics
+        st.subheader("Session Overview")
+        
+        # Create three columns for key stats
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            # Manual input section
-            st.subheader("Manual Input")
-            
-            # Number input
-            spin_result = st.number_input(
-                "Enter Spin Result",
-                min_value=0,
-                max_value=36 if roulette_type == "European" else 37,  # 37 represents 00 in American
-                value=0,
-                help="Enter the number that came up in the spin (use 37 for 00 in American roulette)"
-            )
-            
-            # Additional properties
-            color = roulette_game.get_color(spin_result)
-            is_even = roulette_game.is_even(spin_result)
-            dozen = roulette_game.get_dozen(spin_result)
-            column = roulette_game.get_column(spin_result)
-            half = roulette_game.get_half(spin_result)
-            
-            st.write(f"**Color:** {color.upper()}")
-            st.write(f"**Even/Odd:** {'EVEN' if is_even else 'ODD'}")
-            st.write(f"**Dozen:** {dozen}")
-            st.write(f"**Column:** {column}")
-            st.write(f"**Half:** {half}")
-            
-            # Record spin button
-            if st.button("Record Spin"):
-                timestamp = datetime.now().isoformat()
-                spin_data = {
-                    "timestamp": timestamp,
-                    "number": int(spin_result),
-                    "color": color,
-                    "is_even": is_even,
-                    "dozen": dozen,
-                    "column": column,
-                    "half": half
-                }
-                
-                st.session_state.data_manager.add_spin(st.session_state.current_session, spin_data)
-                st.success(f"Recorded spin: {spin_result} ({color})")
-                # Force refresh
-                st.rerun()
+            st.metric("Total Spins", len(spins_df))
         
         with col2:
-            # Visual representation of the roulette wheel
-            st.subheader("Roulette Wheel")
+            session_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+            st.metric("Roulette Type", session_type)
+        
+        with col3:
+            duration = st.session_state.analyzer.get_session_duration(spins_df)
+            st.metric("Session Duration", duration)
+        
+        # Display probability-related statistics
+        st.subheader("Probability Analysis")
+        
+        # Create tabs for different probability analysis views
+        prob_tab1, prob_tab2, prob_tab3 = st.tabs(["Actual vs Expected", "Deviation Analysis", "Chi-Square Test"])
+        
+        with prob_tab1:
+            st.write("### Actual vs Expected Occurrences")
             
-            # Use plotly for a visual representation of the wheel
-            wheel_fig = viz.create_wheel_visualization(highlight_number=spin_result)
-            st.plotly_chart(wheel_fig, use_container_width=True)
-    
-    # Tab 2: Analysis
-    with tabs[1]:
-        st.header("Spin Analysis")
+            # Get actual vs expected comparison
+            comparison_df = st.session_state.analyzer.compare_actual_vs_expected(
+                spins_df, 
+                st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+            )
+            
+            st.dataframe(comparison_df)
+            
+            # Visualize the comparison
+            fig = st.session_state.visualizer.plot_actual_vs_expected(comparison_df)
+            st.plotly_chart(fig, use_container_width=True)
         
-        # Get spin history
-        spin_history = st.session_state.data_manager.get_spin_history(st.session_state.current_session)
+        with prob_tab2:
+            st.write("### Deviation from Expected")
+            
+            # Calculate and display deviation
+            deviation_df = st.session_state.analyzer.calculate_deviation_from_expected(
+                spins_df, 
+                st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+            )
+            
+            st.dataframe(deviation_df)
+            
+            # Visualize deviations
+            fig = st.session_state.visualizer.plot_deviations(deviation_df)
+            st.plotly_chart(fig, use_container_width=True)
         
-        if not spin_history:
-            st.warning("No spin data recorded yet. Add spins in the Spin Tracker tab.")
-        else:
-            # Convert to DataFrame for analysis
-            df = pd.DataFrame(spin_history)
+        with prob_tab3:
+            st.write("### Randomness Test (Chi-Square)")
+            
+            # Perform chi-square test for randomness
+            chi_square_result, p_value, is_random = st.session_state.analyzer.chi_square_test(
+                spins_df, 
+                st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+            )
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Number Frequency")
-                number_counts = df['number'].value_counts().reindex(range(37 if roulette_type == "European" else 38), fill_value=0)
-                
-                # Hot and cold numbers
-                hot_numbers = number_counts.nlargest(5)
-                cold_numbers = number_counts[number_counts > 0].nsmallest(5)
-                
-                st.markdown("##### Hot Numbers (Most Frequent)")
-                for num, count in hot_numbers.items():
-                    num_display = num if num != 37 else "00"
-                    st.markdown(f"**{num_display}**: {count} times - {viz.get_colored_number_display(num)}")
-                
-                st.markdown("##### Cold Numbers (Least Frequent)")
-                for num, count in cold_numbers.items():
-                    num_display = num if num != 37 else "00"
-                    st.markdown(f"**{num_display}**: {count} times - {viz.get_colored_number_display(num)}")
-                
-                # Frequency chart
-                frequency_fig = px.bar(
-                    x=[str(i) if i != 37 else "00" for i in range(38 if roulette_type == "American" else 37)],
-                    y=number_counts,
-                    title="Number Frequency",
-                    labels={'x': 'Number', 'y': 'Frequency'}
-                )
-                st.plotly_chart(frequency_fig, use_container_width=True)
+                st.metric("Chi-Square Value", f"{chi_square_result:.2f}")
             
             with col2:
-                st.subheader("Pattern Analysis")
-                
-                # Color distribution
-                color_counts = df['color'].value_counts()
-                color_fig = px.pie(
-                    values=color_counts.values,
-                    names=color_counts.index,
-                    title="Color Distribution",
-                    color=color_counts.index,
-                    color_discrete_map={'red': 'red', 'black': 'black', 'green': 'green'}
-                )
-                st.plotly_chart(color_fig, use_container_width=True)
-                
-                # Even/Odd distribution
-                even_odd_counts = df['is_even'].map({True: 'Even', False: 'Odd'}).value_counts()
-                even_odd_fig = px.pie(
-                    values=even_odd_counts.values,
-                    names=even_odd_counts.index,
-                    title="Even/Odd Distribution"
-                )
-                st.plotly_chart(even_odd_fig, use_container_width=True)
+                st.metric("p-value", f"{p_value:.4f}")
             
-            # Additional statistical analysis
-            st.subheader("Advanced Pattern Analysis")
+            if is_random:
+                st.success("The spin results appear to be random (failed to reject null hypothesis).")
+            else:
+                st.warning("The spin results show some non-random patterns (rejected null hypothesis).")
+            
+            st.write("""
+            **Note:** Chi-square test compares the observed frequency distribution with the expected frequency distribution
+            for a fair roulette wheel. A low p-value (typically < 0.05) suggests the distribution is not random.
+            """)
+        
+        # Win-loss simulation based on common betting patterns
+        st.subheader("Win/Loss Simulation")
+        
+        betting_pattern = st.selectbox(
+            "Select a betting pattern to simulate:",
+            ["Red/Black", "Even/Odd", "High/Low", "Dozens", "Columns", "Single Number"]
+        )
+        
+        bankroll = st.number_input("Initial bankroll (units):", min_value=10, value=100, step=10)
+        bet_size = st.number_input("Bet size (units):", min_value=1, value=1, step=1)
+        
+        if st.button("Run Simulation"):
+            results = st.session_state.analyzer.simulate_betting(
+                spins_df, 
+                betting_pattern, 
+                bankroll, 
+                bet_size,
+                st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+            )
+            
+            # Display simulation results
+            st.write(f"### Simulation Results for {betting_pattern} Betting")
             
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                # Dozen distribution
-                dozen_counts = df['dozen'].value_counts().sort_index()
-                dozen_fig = px.bar(
-                    x=dozen_counts.index,
-                    y=dozen_counts.values,
-                    title="Dozen Distribution",
-                    labels={'x': 'Dozen', 'y': 'Count'}
-                )
-                st.plotly_chart(dozen_fig, use_container_width=True)
+                st.metric("Final Bankroll", f"{results['final_bankroll']:.2f} units")
             
             with col2:
-                # Column distribution
-                column_counts = df['column'].value_counts().sort_index()
-                column_fig = px.bar(
-                    x=column_counts.index,
-                    y=column_counts.values,
-                    title="Column Distribution",
-                    labels={'x': 'Column', 'y': 'Count'}
-                )
-                st.plotly_chart(column_fig, use_container_width=True)
+                profit_loss = results['final_bankroll'] - bankroll
+                st.metric("Profit/Loss", f"{profit_loss:.2f} units", delta=f"{profit_loss:.2f}")
             
             with col3:
-                # Half distribution
-                half_counts = df['half'].value_counts().sort_index()
-                half_fig = px.bar(
-                    x=half_counts.index,
-                    y=half_counts.values,
-                    title="Half Distribution",
-                    labels={'x': 'Half', 'y': 'Count'}
-                )
-                st.plotly_chart(half_fig, use_container_width=True)
-                
-            # Sequential pattern analysis
-            st.subheader("Sequential Pattern Analysis")
+                win_rate = results['win_rate'] * 100
+                st.metric("Win Rate", f"{win_rate:.1f}%")
             
-            # Calculate sequential patterns
-            if len(df) >= 5:
-                # Last 5 spins
-                last_5_spins = df['number'].tail(5).tolist()
-                st.write(f"Last 5 spins: {', '.join([str(n) if n != 37 else '00' for n in last_5_spins])}")
-                
-                # Check for repeating patterns
-                repeating_patterns = viz.find_repeating_patterns(df['number'].tolist())
-                if repeating_patterns:
-                    st.markdown("##### Detected Repeating Patterns:")
-                    for pattern, occurrences in repeating_patterns.items():
-                        pattern_display = [str(n) if n != 37 else '00' for n in pattern]
-                        st.write(f"Pattern `{' → '.join(pattern_display)}` has occurred {occurrences} times")
-                else:
-                    st.write("No significant repeating patterns detected.")
-                
-            else:
-                st.info("Need at least 5 spins to analyze sequential patterns.")
-                
-            # Trend visualization
-            st.subheader("Trend Visualization")
-            
-            if len(df) > 1:
-                # Timeline of spins
-                df['timestamp'] = pd.to_datetime(df['timestamp'])
-                df['spin_index'] = range(len(df))
-                
-                trend_fig = go.Figure()
-                
-                # Add points colored by color property
-                for color in ['red', 'black', 'green']:
-                    color_df = df[df['color'] == color]
-                    trend_fig.add_trace(go.Scatter(
-                        x=color_df['spin_index'],
-                        y=color_df['number'],
-                        mode='markers',
-                        name=color.capitalize(),
-                        marker=dict(color=color, size=10),
-                        hovertemplate='Spin #%{x}<br>Number: %{y}'
-                    ))
-                
-                trend_fig.update_layout(
-                    title="Spin History Timeline",
-                    xaxis_title="Spin Number",
-                    yaxis_title="Result",
-                    legend_title="Color"
-                )
-                
-                st.plotly_chart(trend_fig, use_container_width=True)
-                
-                # Consecutive color runs
-                color_runs = viz.analyze_color_runs(df['color'].tolist())
-                
-                st.markdown("##### Longest Color Runs:")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Longest Red Run", color_runs['red'])
-                
-                with col2:
-                    st.metric("Longest Black Run", color_runs['black'])
-                
-                with col3:
-                    st.metric("Longest Green Run", color_runs['green'])
-            
-            else:
-                st.info("Need at least 2 spins to visualize trends.")
+            # Plot bankroll progression
+            fig = st.session_state.visualizer.plot_bankroll_progression(results['bankroll_history'])
+            st.plotly_chart(fig, use_container_width=True)
     
-    # Tab 3: Betting Suggestions
-    with tabs[2]:
-        st.header("Betting Suggestions")
-        
-        spin_history = st.session_state.data_manager.get_spin_history(st.session_state.current_session)
-        
-        if not spin_history or len(spin_history) < 5:
-            st.warning("Need at least 5 spins to generate meaningful betting suggestions.")
-        else:
-            df = pd.DataFrame(spin_history)
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Strategy Selection")
-                
-                strategy = st.selectbox(
-                    "Select Betting Strategy",
-                    ["Pattern-Based", "Martingale", "D'Alembert", "Fibonacci", "Hot/Cold Numbers"],
-                    help="Different strategies for placing bets"
-                )
-                
-                risk_level = st.slider(
-                    "Risk Level",
-                    min_value=1,
-                    max_value=5,
-                    value=3,
-                    help="1 = Conservative, 5 = Aggressive"
-                )
-                
-                st.write("Strategy Description:")
-                if strategy == "Pattern-Based":
-                    st.info("Based on detected patterns in recent spin history.")
-                elif strategy == "Martingale":
-                    st.info("Double your bet after each loss, return to base bet after a win.")
-                elif strategy == "D'Alembert":
-                    st.info("Increase bet by one unit after a loss, decrease by one unit after a win.")
-                elif strategy == "Fibonacci":
-                    st.info("Follow the Fibonacci sequence for bet sizing after losses.")
-                elif strategy == "Hot/Cold Numbers":
-                    st.info("Bet on numbers that have been appearing frequently or rarely.")
-                
-                if st.button("Generate Suggestions"):
-                    # Calculate suggestions based on the selected strategy
-                    suggestions = betting_strategies.generate_suggestions(
-                        df, 
-                        strategy=strategy, 
-                        risk_level=risk_level
-                    )
-                    
-                    # Store in session state to display in the other column
-                    st.session_state.current_suggestions = suggestions
-                    st.rerun()
-            
-            with col2:
-                st.subheader("Suggested Bets")
-                
-                if 'current_suggestions' in st.session_state and st.session_state.current_suggestions:
-                    suggestions = st.session_state.current_suggestions
-                    
-                    st.markdown("##### Primary Bets:")
-                    for bet in suggestions['primary_bets']:
-                        st.markdown(f"- **{bet['type']}**: {bet['description']} (Confidence: {bet['confidence']}%)")
-                    
-                    st.markdown("##### Secondary Bets (Optional):")
-                    for bet in suggestions['secondary_bets']:
-                        st.markdown(f"- **{bet['type']}**: {bet['description']} (Confidence: {bet['confidence']}%)")
-                    
-                    st.markdown("##### Reasoning:")
-                    st.write(suggestions['reasoning'])
-                    
-                    # Display warning about gambling
-                    st.warning("""
-                    **Disclaimer:** These suggestions are based on historical patterns only. 
-                    Roulette is a game of chance with a guaranteed house edge. 
-                    No betting system can guarantee profits in the long run.
-                    """)
-                else:
-                    st.info("Select a strategy and click 'Generate Suggestions' to see betting recommendations.")
-            
-            # Strategy performance analysis if we have enough data
-            if len(df) >= 20:  # Need a reasonable amount of historical data
-                st.subheader("Historical Strategy Performance")
-                
-                # Simulated results using historical data
-                simulation_results = betting_strategies.simulate_strategies(df['number'].tolist())
-                
-                # Create a performance chart
-                performance_fig = go.Figure()
-                
-                for strategy_name, results in simulation_results.items():
-                    performance_fig.add_trace(go.Scatter(
-                        x=list(range(len(results))),
-                        y=results,
-                        mode='lines',
-                        name=strategy_name
-                    ))
-                
-                performance_fig.update_layout(
-                    title="Simulated Strategy Performance",
-                    xaxis_title="Spin Number",
-                    yaxis_title="Cumulative Profit/Loss (Units)",
-                    legend_title="Strategy"
-                )
-                
-                st.plotly_chart(performance_fig, use_container_width=True)
-                
-                # Final performance metrics
-                metrics_df = pd.DataFrame({
-                    'Strategy': simulation_results.keys(),
-                    'Final P/L': [results[-1] for results in simulation_results.values()],
-                    'Max Profit': [max(results) for results in simulation_results.values()],
-                    'Max Drawdown': [min(0, min(results)) for results in simulation_results.values()]
-                })
-                
-                st.dataframe(metrics_df.set_index('Strategy'))
-    
-    # Tab 4: History
-    with tabs[3]:
-        st.header("Spin History")
-        
-        spin_history = st.session_state.data_manager.get_spin_history(st.session_state.current_session)
-        
-        if not spin_history:
-            st.warning("No spin data recorded yet. Add spins in the Spin Tracker tab.")
-        else:
-            # Convert to DataFrame for display
-            df = pd.DataFrame(spin_history)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df['formatted_time'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-            
-            # Create a clean display dataframe
-            display_df = df[['formatted_time', 'number', 'color', 'is_even', 'dozen', 'column', 'half']].copy()
-            display_df.columns = ['Timestamp', 'Number', 'Color', 'Is Even', 'Dozen', 'Column', 'Half']
-            
-            # Replace 37 with '00' for display
-            display_df['Number'] = display_df['Number'].apply(lambda x: '00' if x == 37 else x)
-            
-            # Display the table
-            st.dataframe(
-                display_df.sort_values('Timestamp', ascending=False),
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Option to export data
-            if st.button("Export History as CSV"):
-                csv = display_df.to_csv(index=False).encode('utf-8')
-                session_name = st.session_state.current_session.replace(" ", "_")
-                st.download_button(
-                    "Download CSV File",
-                    csv,
-                    f"roulette_history_{session_name}.csv",
-                    "text/csv",
-                    key='download-csv'
-                )
-                
-            # Clear history option
-            if st.button("Clear Spin History"):
-                st.session_state.data_manager.clear_spin_history(st.session_state.current_session)
-                st.success("Spin history cleared successfully.")
-                st.rerun()
-else:
-    # No active session - show welcome message
-    st.info("👈 Create or load a session from the sidebar to start tracking your roulette spins.")
-    
-    st.markdown("""
-    ## Welcome to the Roulette Tracker & Analyzer
-    
-    This application helps you:
-    - Record and track roulette spin results
-    - Analyze patterns and trends in the data
-    - Get betting suggestions based on historical patterns
-    - Track multiple betting sessions
-    
-    ### Features:
-    - Support for both European and American roulette
-    - Visual representation of spin history
-    - Hot/cold number identification
-    - Pattern detection and analysis
-    - Multiple betting strategy suggestions
-    
-    To get started, create a new session from the sidebar.
-    """)
+    else:
+        st.info("No spin data available for statistics. Please add spins in the Spin Tracker tab.")
