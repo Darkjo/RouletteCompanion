@@ -900,21 +900,38 @@ with tab4:
             time.sleep(0.5)  # Give a moment to see the completed progress
             progress_bar.empty()  # Remove the progress bar
         
-        # Display recommendation confidence explanation
-        st.info(specific_recommendations["confidence_explanation"])
-        
-        # Display a clear summary of all recommendations at the top
-        st.subheader("💰 Quick Recommendation Summary")
-        
-        # Create a summary card with all recommendations
-        summary_cols = st.columns(2)
-        with summary_cols[0]:
-            st.markdown("### Best Bets")
+        # Add smooth loading animation for recommendation results
+        with st.spinner("Preparing recommendation display..."):
+            # Create a container for the animated results
+            results_container = st.container()
             
-            # Get the highest confidence recommendation type
-            highest_confidence = 0
-            best_bet_type = "None"
-            best_bet_value = "None"
+            # Display recommendation confidence explanation with animation
+            with results_container:
+                # Add a small delay to create smooth transition effect
+                time.sleep(0.3)
+                st.info(specific_recommendations["confidence_explanation"])
+                
+                # Display a clear summary of all recommendations at the top with animation
+                st.subheader("💰 Quick Recommendation Summary")
+                
+                # Create placeholder for animated content
+                summary_placeholder = st.empty()
+                
+                # Create a container for animated content
+                with summary_placeholder.container():
+                    # Create summary card with all recommendations (will be displayed with animation)
+                    summary_cols = st.columns(2)
+                    
+                    # Add small delay for smooth appearance
+                    time.sleep(0.2)
+                    
+                    with summary_cols[0]:
+                        st.markdown("### Best Bets")
+                        
+                        # Get the highest confidence recommendation type
+                        highest_confidence = 0
+                        best_bet_type = "None"
+                        best_bet_value = "None"
             
             # Check all bet types and find the one with highest confidence
             if specific_recommendations["red_black"]["recommendation"]:
@@ -992,15 +1009,18 @@ with tab4:
                     streets_str = ", ".join(streets[:2])
                     st.markdown(f"**Street Bets:** {streets_str}")
                 
-        with summary_cols[1]:
-            st.markdown("### Bet Details")
-            
-            # Display recommended bet size
-            if specific_recommendations.get("highest_confidence", 0) > 0:
-                st.success(f"Recommended bet size: ${specific_recommendations.get('recommended_bet_size', 0):.2f}")
-            
-            # Show all the even money bets
-            st.markdown("#### Even Money Bets:")
+                    # Add the second column with animated appearance
+                    with summary_cols[1]:
+                        # Add small delay for second column appearance
+                        time.sleep(0.3)
+                        st.markdown("### Bet Details")
+                        
+                        # Display recommended bet size
+                        if specific_recommendations.get("highest_confidence", 0) > 0:
+                            st.success(f"Recommended bet size: ${specific_recommendations.get('recommended_bet_size', 0):.2f}")
+                        
+                        # Show all the even money bets
+                        st.markdown("#### Even Money Bets:")
             if specific_recommendations["red_black"]["recommendation"]:
                 st.markdown(f"**Color:** {specific_recommendations['red_black']['recommendation'].upper()}")
             
