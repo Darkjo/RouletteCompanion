@@ -962,7 +962,7 @@ with tab5:
         bankroll = st.number_input("Initial bankroll (units):", min_value=10, value=100, step=10)
         bet_size = st.number_input("Bet size (units):", min_value=1, value=1, step=1)
         
-        if st.button("Run Simulation"):
+        if st.button("Run Pattern Simulation"):
             results = st.session_state.analyzer.simulate_betting(
                 spins_df, 
                 betting_pattern, 
