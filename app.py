@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import json
 import os
+import time
 
 from utils.roulette_data import RouletteData
 from utils.analysis import RouletteAnalyzer
@@ -71,6 +72,32 @@ if 'fast_mode' not in st.session_state:
 
 # Application title
 st.title("🎰 Roulette Tracker and Analyzer")
+
+# Show update notification if present
+if "show_update_notification" in st.session_state and st.session_state.show_update_notification:
+    update_time = st.session_state.last_spin_time.strftime("%H:%M:%S")
+    update_number = st.session_state.last_spin_number
+    
+    # Create a container for the notification
+    notification = st.container()
+    with notification:
+        cols = st.columns([3, 1])
+        with cols[0]:
+            st.success(f"✅ Data updated at {update_time}: Added spin result **{update_number}**")
+        with cols[1]:
+            if st.button("Dismiss"):
+                st.session_state.show_update_notification = False
+                st.rerun()
+    
+    # Auto-dismiss after 8 seconds (same as our analysis window)
+    if "notification_start_time" not in st.session_state:
+        st.session_state.notification_start_time = time.time()
+    
+    # Check if 8 seconds have passed
+    if time.time() - st.session_state.notification_start_time > 8:
+        st.session_state.show_update_notification = False
+        st.session_state.notification_start_time = None
+        st.rerun()
 
 # Sidebar for settings and navigation
 with st.sidebar:
@@ -858,13 +885,43 @@ with tab4:
         """)
         
         # Get specific bet recommendations
-        # Pass the fast_mode parameter from session state to the analysis
-        specific_recommendations = st.session_state.agent.get_specific_bet_recommendations(
-            spins_df, 
-            current_roulette_type, 
-            st.session_state.bankroll,
-            st.session_state.fast_mode
-        )
+        # Show a progress bar while analysis is running
+        with st.spinner("Analyzing spin patterns..."):
+            progress_bar = st.progress(0, text="Starting analysis...")
+            
+            # Create a timer to update the progress bar
+            if st.session_state.fast_mode:
+                # Fast mode: update progress bar to simulate 8-second window
+                import time
+                start_time = time.time()
+                max_time = 8.0  # Maximum time in seconds
+                
+                # Function to update progress bar
+                def update_progress():
+                    elapsed = time.time() - start_time
+                    progress = min(elapsed / max_time, 0.99)  # Cap at 99% until complete
+                    progress_bar.progress(progress, text=f"Analyzing spin patterns... {int(progress * 100)}%")
+                    return progress < 0.99
+                
+                # Start analysis with progress updates
+                while update_progress():
+                    time.sleep(0.1)  # Update every 100ms
+                    # Break early if we're past 7.5 seconds to avoid hitting the limit
+                    if time.time() - start_time > 7.5:
+                        break
+            
+            # Pass the fast_mode parameter from session state to the analysis
+            specific_recommendations = st.session_state.agent.get_specific_bet_recommendations(
+                spins_df, 
+                current_roulette_type, 
+                st.session_state.bankroll,
+                st.session_state.fast_mode
+            )
+            
+            # Complete the progress bar
+            progress_bar.progress(1.0, text="Analysis complete!")
+            time.sleep(0.5)  # Give a moment to see the completed progress
+            progress_bar.empty()  # Remove the progress bar
         
         # Display recommendation confidence explanation
         st.info(specific_recommendations["confidence_explanation"])

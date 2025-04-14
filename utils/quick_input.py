@@ -178,6 +178,16 @@ def add_floating_quick_input(session_name, roulette_data, roulette_type="Europea
                 timestamp=datetime.now()
             )
             
+            # Store information about the last spin for display
+            if "last_spin_time" not in st.session_state:
+                st.session_state.last_spin_time = datetime.now()
+                st.session_state.last_spin_number = number
+                st.session_state.show_update_notification = True
+            else:
+                st.session_state.last_spin_time = datetime.now()
+                st.session_state.last_spin_number = number
+                st.session_state.show_update_notification = True
+            
             # Show success message
             st.success(f"Added spin result: {number}")
             
