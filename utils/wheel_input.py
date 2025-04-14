@@ -62,28 +62,40 @@ def create_roulette_wheel_input(roulette_type="European"):
         
         # Add sectors
         for i, (num, angle) in enumerate(zip(wheel_numbers, angles)):
-            # Add sector as marker
+            # Add sector as marker with improved visual contrast
             next_angle = angles[(i+1) % num_sectors]
             angle_range = np.linspace(angle, next_angle, 20)
+            
+            # Adjust sector colors for better visibility
+            actual_color = colors[num]
+            if actual_color == 'red':
+                actual_color = '#FF2222'  # Brighter red
+            elif actual_color == 'black':
+                actual_color = '#111111'  # Not 100% black for better contrast
+            elif actual_color == 'green':
+                actual_color = '#00AA00'  # Medium green
+                
             fig.add_trace(go.Scatterpolar(
                 r=[0.9] * len(angle_range),
                 theta=np.degrees(angle_range),
                 mode='lines',
                 fill='toself',
-                fillcolor=colors[num],
-                line=dict(color='white', width=1),
+                fillcolor=actual_color,
+                line=dict(color='white', width=2),  # Thicker white border
                 name=num,
                 hoverinfo='name'
             ))
             
-            # Add number labels
+            # Add number labels with better contrast
             mid_angle = (angle + next_angle) / 2
+            # Use white text for red and black backgrounds, black text for green
+            text_color = 'black' if colors[num] == 'green' else 'white'
             fig.add_trace(go.Scatterpolar(
                 r=[0.7],
                 theta=[np.degrees(mid_angle)],
                 mode='text',
                 text=[num],
-                textfont=dict(color='white', size=12),
+                textfont=dict(color=text_color, size=14, family='Arial Black'),
                 hoverinfo='skip',
                 name=''
             ))
@@ -91,13 +103,15 @@ def create_roulette_wheel_input(roulette_type="European"):
         # Update layout for nice wheel appearance
         fig.update_layout(
             polar=dict(
-                radialaxis=dict(visible=False),
-                angularaxis=dict(visible=False)
+                radialaxis=dict(visible=False, range=[0, 1]),
+                angularaxis=dict(visible=False),
+                bgcolor="rgba(240, 240, 240, 0.8)"  # Light gray background for better contrast
             ),
             showlegend=False,
-            margin=dict(t=0, b=0, l=0, r=0),
-            height=600,
-            width=600
+            margin=dict(t=20, b=20, l=20, r=20),
+            height=650,
+            width=650,
+            paper_bgcolor="rgba(255, 255, 255, 0.95)"  # Almost white paper background
         )
         
         # Use Streamlit's experimental plotly events to capture clicks
