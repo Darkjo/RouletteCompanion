@@ -540,6 +540,114 @@ with tab3:
 with tab4:
     st.header(f"Advanced Strategy Agent - {st.session_state.current_session}")
     
+    # Add a sample data generator for testing the recommendation system
+    with st.expander("Test Data Generator (For Development)"):
+        st.write("""
+        This section allows you to generate sample spin data to test the recommendation system.
+        You can quickly add different patterns of numbers to see how the system responds.
+        """)
+        
+        test_data_type = st.selectbox(
+            "Select Test Data Pattern",
+            ["Random Data", "Red Bias", "Black Bias", "Even Bias", "Odd Bias", 
+             "First Dozen Bias", "Single Number Bias", "Alternating Colors", "Consecutive Numbers"]
+        )
+        
+        sample_size = st.slider("Number of Spins to Generate", 10, 200, 50)
+        
+        if st.button("Generate Test Data"):
+            # Get current roulette type
+            current_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+            
+            # Clear existing data
+            st.session_state.roulette_data.clear_spin_history(st.session_state.current_session)
+            
+            # Define roulette wheel properties
+            red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+            black_numbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35]
+            all_numbers = list(range(1, 37))
+            if current_type == "American":
+                all_numbers.extend([0, 0])  # 0 and 00
+            else:
+                all_numbers.append(0)  # Just 0 for European
+            
+            # Generate spins based on selected pattern
+            import random
+            import datetime
+            
+            test_spins = []
+            timestamp = datetime.datetime.now() - datetime.timedelta(minutes=sample_size)
+            
+            for i in range(sample_size):
+                # Increment timestamp for each spin
+                timestamp += datetime.timedelta(minutes=1)
+                
+                # Select number based on pattern
+                if test_data_type == "Random Data":
+                    number = random.choice(all_numbers)
+                elif test_data_type == "Red Bias":
+                    # 70% chance of red, 30% chance of others
+                    if random.random() < 0.7:
+                        number = random.choice(red_numbers)
+                    else:
+                        number = random.choice([n for n in all_numbers if n not in red_numbers])
+                elif test_data_type == "Black Bias":
+                    # 70% chance of black, 30% chance of others
+                    if random.random() < 0.7:
+                        number = random.choice(black_numbers)
+                    else:
+                        number = random.choice([n for n in all_numbers if n not in black_numbers])
+                elif test_data_type == "Even Bias":
+                    # 70% chance of even, 30% chance of odd or zero
+                    if random.random() < 0.7:
+                        number = random.choice([n for n in all_numbers if n > 0 and n % 2 == 0])
+                    else:
+                        number = random.choice([n for n in all_numbers if n == 0 or n % 2 == 1])
+                elif test_data_type == "Odd Bias":
+                    # 70% chance of odd, 30% chance of even or zero
+                    if random.random() < 0.7:
+                        number = random.choice([n for n in all_numbers if n > 0 and n % 2 == 1])
+                    else:
+                        number = random.choice([n for n in all_numbers if n == 0 or n % 2 == 0])
+                elif test_data_type == "First Dozen Bias":
+                    # 70% chance of 1-12, 30% chance of others
+                    if random.random() < 0.7:
+                        number = random.choice(range(1, 13))
+                    else:
+                        number = random.choice([n for n in all_numbers if n == 0 or n > 12])
+                elif test_data_type == "Single Number Bias":
+                    # 30% chance of number 17, 70% chance of others
+                    if random.random() < 0.3:
+                        number = 17
+                    else:
+                        number = random.choice([n for n in all_numbers if n != 17])
+                elif test_data_type == "Alternating Colors":
+                    # Alternate between red and black
+                    if i % 2 == 0:
+                        number = random.choice(red_numbers)
+                    else:
+                        number = random.choice(black_numbers)
+                elif test_data_type == "Consecutive Numbers":
+                    # Series of consecutive numbers that repeats
+                    number = (i % 36) + 1
+                else:
+                    number = random.choice(all_numbers)
+                
+                # Convert to string (0 and 00 handling)
+                if number == 0 and current_type == "American" and random.random() < 0.5:
+                    number_str = "00"
+                else:
+                    number_str = str(number)
+                
+                # Add spin to test data
+                spin_data = {
+                    "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "number": number_str
+                }
+                st.session_state.roulette_data.add_spin(st.session_state.current_session, spin_data)
+            
+            st.success(f"Generated {sample_size} spins with {test_data_type} pattern for testing!")
+    
     # Get data for current session
     spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
     current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
