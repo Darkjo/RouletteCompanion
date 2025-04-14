@@ -145,21 +145,69 @@ class RLAgent:
         self.performance_log.clear()
         self.accuracy = 0.5
 
+    @st.cache_data(ttl=60)  # Cache for 60 seconds
+    def get_cached_summary(self):
+        """
+        Cached version of get_summary to avoid redundant calculations.
+        The TTL of 60 seconds ensures the cache is refreshed periodically.
+        
+        Returns:
+            list: Summary statistics for each strategy
+        """
+        return self._calculate_summary()
+    
     def get_summary(self):
         """
         Get a summary of the agent's performance.
+        Uses caching for better performance.
+        
+        Returns:
+            list: Summary statistics for each strategy
+        """
+        # If we haven't updated for a while, use the cached version
+        # This prevents repeated calculations when viewing the same data
+        return self.get_cached_summary()
+    
+    def _calculate_summary(self):
+        """
+        Internal method to calculate summary statistics.
         
         Returns:
             list: Summary statistics for each strategy
         """
         summary = defaultdict(lambda: {"wins": 0, "losses": 0, "profit": 0})
-        for entry in self.performance_log:
-            strat = entry['strategy']
-            summary[strat]['profit'] += entry['payout']
-            if entry['win']:
-                summary[strat]['wins'] += 1
-            else:
-                summary[strat]['losses'] += 1
+        
+        # Process in batches for better performance with large logs
+        batch_size = 20
+        log_length = len(self.performance_log)
+        
+        # Initialize progress bar variable
+        progress_bar = None
+        
+        # Show progress bar if processing a large number of entries
+        if log_length > 50:
+            progress_bar = st.progress(0)
+        
+        for i in range(0, log_length, batch_size):
+            # Process a batch of entries
+            end_idx = min(i + batch_size, log_length)
+            batch = self.performance_log[i:end_idx]
+            
+            for entry in batch:
+                strat = entry['strategy']
+                summary[strat]['profit'] += entry['payout']
+                if entry['win']:
+                    summary[strat]['wins'] += 1
+                else:
+                    summary[strat]['losses'] += 1
+            
+            # Update progress bar if we're showing one
+            if progress_bar is not None:
+                progress_bar.progress(min(end_idx / log_length, 1.0))
+        
+        # Clear progress bar if shown
+        if progress_bar is not None:
+            progress_bar.empty()
 
         summary_list = []
         for strat, data in summary.items():
@@ -174,9 +222,42 @@ class RLAgent:
             })
         return summary_list
         
+    @st.cache_data(ttl=300)  # Cache for 5 minutes
+    def get_cached_bet_recommendations(self, spins_df, roulette_type, bankroll):
+        """
+        Cached version of get_specific_bet_recommendations.
+        
+        Args:
+            spins_df (pd.DataFrame): DataFrame with spin data
+            roulette_type (str): Type of roulette - 'European' or 'American'
+            bankroll (float): Current bankroll amount
+            
+        Returns:
+            dict: Detailed recommendations with confidence scores
+        """
+        # Create a hash of the dataframe to use as part of the cache key
+        # This ensures we recompute if the data changes
+        return self._calculate_bet_recommendations(spins_df, roulette_type, bankroll)
+    
     def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll):
         """
         Provide specific number and bet recommendations based on statistical analysis.
+        Uses caching and shows progress indicators for large datasets.
+        
+        Args:
+            spins_df (pd.DataFrame): DataFrame with spin data
+            roulette_type (str): Type of roulette - 'European' or 'American'
+            bankroll (float): Current bankroll amount
+            
+        Returns:
+            dict: Detailed recommendations with confidence scores
+        """
+        # Use cached version
+        return self.get_cached_bet_recommendations(spins_df, roulette_type, bankroll)
+        
+    def _calculate_bet_recommendations(self, spins_df, roulette_type, bankroll):
+        """
+        Internal method to calculate bet recommendations with progress indicators.
         
         Args:
             spins_df (pd.DataFrame): DataFrame with spin data
@@ -223,24 +304,48 @@ class RLAgent:
         
         # Find numbers that appear more frequently than expected
         hot_numbers = []
-        for num, count in number_counts.items():
-            # Skip 0 and 00 for simplicity
-            if num in ['0', '00']: 
-                continue
-                
-            observed_prob = count / total_spins
-            deviation = observed_prob / expected_prob
+        
+        # Show progress indicator for large datasets
+        progress_bar = None
+        if len(number_counts) > 30:
+            progress_bar = st.progress(0)
+            st.caption("Analyzing number frequencies...")
             
-            # Consider as "hot" if it appears at least 1.5x more than expected
-            if deviation >= 1.5:
-                confidence = min(0.9, (deviation - 1) * 0.5)  # Cap confidence at 90%
-                hot_numbers.append({
-                    'number': num,
-                    'count': count,
-                    'frequency': f"{round(observed_prob * 100, 1)}%",
-                    'deviation': round(deviation, 2),
-                    'confidence': round(confidence, 2)
-                })
+        # Process in batches for better performance
+        items = list(number_counts.items())
+        batch_size = 10
+        
+        for i in range(0, len(items), batch_size):
+            # Process a batch of numbers
+            end_idx = min(i + batch_size, len(items))
+            batch = items[i:end_idx]
+            
+            for num, count in batch:
+                # Skip 0 and 00 for simplicity
+                if num in ['0', '00']: 
+                    continue
+                    
+                observed_prob = count / total_spins
+                deviation = observed_prob / expected_prob
+                
+                # Consider as "hot" if it appears at least 1.5x more than expected
+                if deviation >= 1.5:
+                    confidence = min(0.9, (deviation - 1) * 0.5)  # Cap confidence at 90%
+                    hot_numbers.append({
+                        'number': num,
+                        'count': count,
+                        'frequency': f"{round(observed_prob * 100, 1)}%",
+                        'deviation': round(deviation, 2),
+                        'confidence': round(confidence, 2)
+                    })
+            
+            # Update progress bar if we're showing one
+            if progress_bar is not None:
+                progress_bar.progress(min(end_idx / len(items), 1.0))
+        
+        # Clear progress bar if shown
+        if progress_bar is not None:
+            progress_bar.empty()
         
         # Sort by deviation and take top 3
         hot_numbers = sorted(hot_numbers, key=lambda x: x['deviation'], reverse=True)[:3]
@@ -375,7 +480,14 @@ class RLAgent:
         if hot_numbers:
             # Find potential split bets using hot numbers
             split_bets = []
-            for hot_num_data in hot_numbers:
+            
+            # Show progress for split bet analysis if there are a lot of hot numbers
+            split_progress = None
+            if len(hot_numbers) >= 3:
+                split_progress = st.progress(0)
+                st.caption("Analyzing split bet opportunities...")
+            
+            for i, hot_num_data in enumerate(hot_numbers):
                 hot_num = int(hot_num_data['number'])
                 # Find adjacent numbers on the roulette layout
                 # This is a simplified approach - actual adjacency depends on roulette wheel layout
@@ -397,6 +509,14 @@ class RLAgent:
                                 'deviation': round(split_deviation, 2),
                                 'confidence': round(split_confidence, 2)
                             })
+                
+                # Update progress if shown
+                if split_progress is not None:
+                    split_progress.progress(min((i+1) / len(hot_numbers), 1.0))
+            
+            # Clear progress if shown
+            if split_progress is not None:
+                split_progress.empty()
             
             # Sort by deviation and take top 2
             split_bets = sorted(split_bets, key=lambda x: x['deviation'], reverse=True)[:2]
