@@ -1,12 +1,10 @@
 """
-Visual Roulette Wheel Input Component
+Roulette Number Input Component
 """
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
 from datetime import datetime
-import random  # Import random here instead of importing in multiple functions
+import random
 
 def create_roulette_wheel_input(roulette_type="European"):
     """
@@ -20,160 +18,236 @@ def create_roulette_wheel_input(roulette_type="European"):
     """
     # Define wheel numbers and colors
     if roulette_type == "European":
-        wheel_numbers = [
-            '0', '32', '15', '19', '4', '21', '2', '25', '17', '34', '6', 
-            '27', '13', '36', '11', '30', '8', '23', '10', '5', '24', '16', 
-            '33', '1', '20', '14', '31', '9', '22', '18', '29', '7', '28', 
-            '12', '35', '3', '26'
-        ]
+        max_number = 36
+        has_double_zero = False
     else:  # American
-        wheel_numbers = [
-            '0', '28', '9', '26', '30', '11', '7', '20', '32', '17', '5', 
-            '22', '34', '15', '3', '24', '36', '13', '1', '00', '27', '10', 
-            '25', '29', '12', '8', '19', '31', '18', '6', '21', '33', '16', 
-            '4', '23', '35', '14', '2'
-        ]
+        max_number = 36
+        has_double_zero = True
     
-    # Define colors for each number
-    colors = {}
+    # Define colors for roulette numbers
     red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
-    for num in wheel_numbers:
-        if num == '0' or num == '00':
-            colors[num] = 'green'
-        elif int(num) in red_numbers:
-            colors[num] = 'red'
-        else:
-            colors[num] = 'black'
     
-    # Create visual wheel with three tabs: Number Grid, Quick Bets, and Manual Entry
-    tab1, tab2, tab3 = st.tabs(["Number Grid", "Quick Picks", "Manual Entry"])
+    # Create input tabs
+    tab1, tab2, tab3 = st.tabs(["Roulette Table", "Quick Picks", "Manual Entry"])
     
     selected_number = None
     
+    # Tab 1: Roulette Table representation
     with tab1:
-        st.write("Select a number from the grid:")
+        st.write("#### Select a number from the roulette table:")
         
-        # Green (0 and optionally 00) in the top row
-        zeros_cols = st.columns(4)
-        with zeros_cols[1]:
-            if st.button("0", key="grid_0", 
-                       use_container_width=True,
-                       type="primary"):
-                selected_number = "0"
+        # Style the layout to look more like a roulette table
+        st.markdown("""
+        <style>
+        .roulette-table {
+            background-color: #0D4C27;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
-        if roulette_type == "American":
-            with zeros_cols[2]:
-                if st.button("00", key="grid_00", 
-                           use_container_width=True,
-                           type="primary"):
-                    selected_number = "00"
+        # Create the zero section
+        st.markdown('<div class="roulette-table">', unsafe_allow_html=True)
         
-        # Create a grid for regular numbers (1-36)
-        st.write("##### Numbers 1-36")
+        # Handle zero(s) differently based on roulette type
+        if has_double_zero:
+            # For American roulette with 0 and 00
+            zero_cols = st.columns([1, 2, 1])
+            with zero_cols[1]:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if st.button("0", key="table_0", use_container_width=True, 
+                               type="primary", help="Green - 0"):
+                        selected_number = "0"
+                
+                with col2:
+                    if st.button("00", key="table_00", use_container_width=True, 
+                               type="primary", help="Green - 00"):
+                        selected_number = "00"
+        else:
+            # For European roulette with just 0
+            zero_cols = st.columns([1, 2, 1])
+            with zero_cols[1]:
+                if st.button("0", key="table_0", use_container_width=True, 
+                           type="primary", help="Green - 0"):
+                    selected_number = "0"
         
-        # Display numbers in a 3x12 grid (similar to table layout)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Create the main number grid (3 rows x 12 columns)
+        st.markdown('<div class="roulette-table">', unsafe_allow_html=True)
+        
+        # Create 3 rows of numbers
         for row in range(3):
             cols = st.columns(12)
             for col in range(12):
-                num = col * 3 + row + 1
-                str_num = str(num)
-                button_type = "secondary"
-                button_color = "red" if num in red_numbers else "black"
-                text_color = "red" if num in red_numbers else "black"
+                num = str(col * 3 + row + 1)
+                is_red = (col * 3 + row + 1) in red_numbers
                 
                 with cols[col]:
-                    if st.button(f"{str_num}", key=f"grid_{str_num}", 
-                               use_container_width=True,
-                               type=button_type,
-                               help=f"Color: {button_color}"):
-                        selected_number = str_num
+                    if st.button(
+                        num, 
+                        key=f"table_{num}", 
+                        use_container_width=True,
+                        type="secondary",
+                        help=f"{'Red' if is_red else 'Black'} - {num}"
+                    ):
+                        selected_number = num
         
-        # Create a grid of buttons for number selection
-        st.subheader("Select a number:")
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        # Create a grid layout of numbers
-        cols = st.columns(6)
-        for i, num in enumerate(sorted(wheel_numbers, key=lambda x: int(0 if x == '00' else x))):
-            col_idx = i % 6
-            if cols[col_idx].button(
-                num, 
-                key=f"wheel_btn_{num}",
-                use_container_width=True,
-                type="primary" if colors[num] == "green" else "secondary"
-            ):
-                selected_number = num
-    
-    with tab2:
-        st.write("Quick selection options:")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("🔴 Red Number", use_container_width=True):
-                # Select a random red number
-                red_nums = [str(num) for num in red_numbers]
-                selected_number = random.choice(red_nums)
-            
-            if st.button("⚫ Black Number", use_container_width=True):
-                # Select a random black number
-                black_nums = [n for n in wheel_numbers if n != '0' and n != '00' and n not in [str(num) for num in red_numbers]]
-                selected_number = random.choice(black_nums)
-            
-            if st.button("Even Number", use_container_width=True):
-                # Select a random even number
-                even_nums = [str(num) for num in range(2, 37, 2)]
-                selected_number = random.choice(even_nums)
-                
-        with col2:
-            if st.button("Odd Number", use_container_width=True):
-                # Select a random odd number
-                odd_nums = [str(num) for num in range(1, 37, 2)]
-                selected_number = random.choice(odd_nums)
-            
-            if st.button("Green (0)", use_container_width=True):
-                selected_number = '0'
-                
-            if roulette_type == "American":
-                if st.button("Green (00)", use_container_width=True):
-                    selected_number = '00'
-        
-        # Quick number groups
-        st.subheader("Number Groups:")
+        # Add betting options section
+        st.write("#### Betting Options:")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("1-12 (First Dozen)", use_container_width=True):
-                first_dozen = [str(num) for num in range(1, 13)]
-                selected_number = random.choice(first_dozen)
+            st.write("**Dozens:**")
+            if st.button("1st Dozen (1-12)", key="dozen_1", use_container_width=True):
+                selected_number = str(random.randint(1, 12))
                 
+            if st.button("2nd Dozen (13-24)", key="dozen_2", use_container_width=True):
+                selected_number = str(random.randint(13, 24))
+                
+            if st.button("3rd Dozen (25-36)", key="dozen_3", use_container_width=True):
+                selected_number = str(random.randint(25, 36))
+        
         with col2:
-            if st.button("13-24 (Second Dozen)", use_container_width=True):
-                second_dozen = [str(num) for num in range(13, 25)]
-                selected_number = random.choice(second_dozen)
+            st.write("**Columns:**")
+            if st.button("1st Column (1,4,7...)", key="col_1", use_container_width=True):
+                selected_number = str(random.choice([1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]))
+                
+            if st.button("2nd Column (2,5,8...)", key="col_2", use_container_width=True):
+                selected_number = str(random.choice([2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]))
+                
+            if st.button("3rd Column (3,6,9...)", key="col_3", use_container_width=True):
+                selected_number = str(random.choice([3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]))
                 
         with col3:
-            if st.button("25-36 (Third Dozen)", use_container_width=True):
-                third_dozen = [str(num) for num in range(25, 37)]
-                selected_number = random.choice(third_dozen)
+            st.write("**Even/Odd & Colors:**")
+            if st.button("🔴 Red", key="bet_red", use_container_width=True):
+                selected_number = str(random.choice(red_numbers))
                 
-    with tab3:
-        st.write("Enter the spin result manually:")
+            if st.button("⚫ Black", key="bet_black", use_container_width=True):
+                black_numbers = [n for n in range(1, 37) if n not in red_numbers]
+                selected_number = str(random.choice(black_numbers))
+                
+            odd_even_cols = st.columns(2)
+            if odd_even_cols[0].button("Even", key="bet_even", use_container_width=True):
+                selected_number = str(random.choice(range(2, 37, 2)))
+                
+            if odd_even_cols[1].button("Odd", key="bet_odd", use_container_width=True):
+                selected_number = str(random.choice(range(1, 37, 2)))
+    
+    # Tab 2: Quick Picks
+    with tab2:
+        st.write("#### Quick selection options:")
         
-        if roulette_type == "European":
-            manual_num = st.number_input("Spin Result (0-36):", min_value=-1, max_value=36, step=1, value=-1)
-            if manual_num >= 0:
-                selected_number = str(manual_num)
-        else:  # American
-            manual_options = ["Select"] + ["00"] + [str(i) for i in range(37)]
-            manual_selection = st.selectbox("Spin Result:", manual_options)
-            if manual_selection != "Select":
-                selected_number = manual_selection
+        # Random number picker
+        st.write("**Random Number Selection:**")
+        if st.button("🎲 Random Number", key="random_number", use_container_width=True):
+            # Include 0 and 00 (if American) in the possibilities
+            possible_nums = list(range(max_number + 1))
+            if has_double_zero:
+                # Use -1 to represent 00 (for random selection purposes)
+                possible_nums.append(-1)
                 
-    # Display the selected number if any
+            selected = random.choice(possible_nums)
+            if selected == -1:
+                selected_number = "00"
+            else:
+                selected_number = str(selected)
+        
+        # Hot and cold numbers (simulated for demo)
+        st.write("**Hot and Cold Numbers:**")
+        cols = st.columns(2)
+        
+        with cols[0]:
+            st.write("**Hot Numbers (most frequent):**")
+            # Simulated hot numbers
+            hot_nums = [7, 17, 23, 24, 32]
+            hot_cols = st.columns(5)
+            for i, num in enumerate(hot_nums):
+                if hot_cols[i].button(str(num), key=f"hot_{num}", use_container_width=True):
+                    selected_number = str(num)
+        
+        with cols[1]:
+            st.write("**Cold Numbers (least frequent):**")
+            # Simulated cold numbers
+            cold_nums = [6, 13, 27, 33, 34]
+            cold_cols = st.columns(5)
+            for i, num in enumerate(cold_nums):
+                if cold_cols[i].button(str(num), key=f"cold_{num}", use_container_width=True):
+                    selected_number = str(num)
+        
+        # Number patterns
+        st.write("**Number Patterns:**")
+        pattern_cols = st.columns(3)
+        
+        with pattern_cols[0]:
+            if st.button("Low (1-18)", key="pattern_low", use_container_width=True):
+                selected_number = str(random.randint(1, 18))
+                
+        with pattern_cols[1]:
+            if st.button("Middle (13-24)", key="pattern_mid", use_container_width=True):
+                selected_number = str(random.randint(13, 24))
+                
+        with pattern_cols[2]:
+            if st.button("High (19-36)", key="pattern_high", use_container_width=True):
+                selected_number = str(random.randint(19, 36))
+    
+    # Tab 3: Manual Entry
+    with tab3:
+        st.write("#### Enter the spin result manually:")
+        
+        method = st.radio("Input Method:", ["Number Picker", "Direct Entry"])
+        
+        if method == "Number Picker":
+            if roulette_type == "European":
+                manual_options = ["Select"] + [str(i) for i in range(max_number + 1)]
+                manual_selection = st.selectbox("Select Number:", manual_options)
+                if manual_selection != "Select":
+                    selected_number = manual_selection
+            else:  # American
+                manual_options = ["Select"] + ["00"] + [str(i) for i in range(max_number + 1)]
+                manual_selection = st.selectbox("Select Number:", manual_options)
+                if manual_selection != "Select":
+                    selected_number = manual_selection
+        else:  # Direct Entry
+            if roulette_type == "European":
+                manual_num = st.number_input("Enter Number (0-36):", min_value=-1, max_value=max_number, step=1, value=-1)
+                if manual_num >= 0:
+                    selected_number = str(manual_num)
+            else:  # American
+                col1, col2 = st.columns(2)
+                with col1:
+                    manual_num = st.number_input("Enter Number (0-36):", min_value=-1, max_value=max_number, step=1, value=-1)
+                    if manual_num >= 0:
+                        selected_number = str(manual_num)
+                with col2:
+                    if st.button("00", key="manual_00", use_container_width=True):
+                        selected_number = "00"
+    
+    # Display the selected number with appropriate color
     if selected_number:
-        color = colors.get(selected_number, 'green')
-        st.success(f"Selected number: {selected_number} ({color})")
+        if selected_number == "0" or selected_number == "00":
+            color = "green"
+        elif int(selected_number) in red_numbers:
+            color = "red"
+        else:
+            color = "black"
+            
+        # Provide visual feedback for the selected number
+        st.markdown(f"""
+        <div style="padding: 10px; background-color: #f0f0f0; border-radius: 5px; margin-top: 15px;">
+            <h3 style="text-align: center; margin: 0;">Selected Number: 
+                <span style="color: {color}; font-weight: bold;">{selected_number}</span>
+            </h3>
+        </div>
+        """, unsafe_allow_html=True)
     
     return selected_number
 
