@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
+import random  # Import random here instead of importing in multiple functions
 
 def create_roulette_wheel_input(roulette_type="European"):
     """

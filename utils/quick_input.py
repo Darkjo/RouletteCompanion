@@ -3,6 +3,7 @@ Quick Input Panel for rapid entry of roulette spins
 """
 import streamlit as st
 from datetime import datetime
+import random  # Import at the module level instead of repeatedly within functions
 
 def create_quick_input_panel(current_roulette_type="European", on_result_callback=None):
     """
@@ -68,7 +69,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col1:
         if st.button("🔴 RED", key="quick_red", use_container_width=True):
             # Select a random red number
-            import random
             selected = str(random.choice(red_numbers))
             if on_result_callback:
                 on_result_callback(selected)
@@ -76,7 +76,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col2:
         if st.button("⚫ BLACK", key="quick_black", use_container_width=True):
             # Select a random black number
-            import random
             black_numbers = [n for n in range(1, 37) if n not in red_numbers]
             selected = str(random.choice(black_numbers))
             if on_result_callback:
@@ -85,7 +84,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col3:
         if st.button("EVEN", key="quick_even", use_container_width=True):
             # Select a random even number
-            import random
             selected = str(random.choice([n for n in range(2, 37, 2)]))
             if on_result_callback:
                 on_result_callback(selected)
@@ -93,7 +91,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col4:
         if st.button("ODD", key="quick_odd", use_container_width=True):
             # Select a random odd number
-            import random
             selected = str(random.choice([n for n in range(1, 37, 2)]))
             if on_result_callback:
                 on_result_callback(selected)
@@ -103,7 +100,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col1:
         if st.button("1-12", key="quick_1st_dozen", use_container_width=True):
             # Select a random number from the first dozen
-            import random
             selected = str(random.choice(range(1, 13)))
             if on_result_callback:
                 on_result_callback(selected)
@@ -111,7 +107,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col2:
         if st.button("13-24", key="quick_2nd_dozen", use_container_width=True):
             # Select a random number from the second dozen
-            import random
             selected = str(random.choice(range(13, 25)))
             if on_result_callback:
                 on_result_callback(selected)
@@ -119,7 +114,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col3:
         if st.button("25-36", key="quick_3rd_dozen", use_container_width=True):
             # Select a random number from the third dozen
-            import random
             selected = str(random.choice(range(25, 37)))
             if on_result_callback:
                 on_result_callback(selected)
@@ -130,7 +124,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
         if st.button("Column 1", key="quick_1st_col", use_container_width=True, 
                     help="1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34"):
             # Select a random number from the first column
-            import random
             selected = str(random.choice([1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]))
             if on_result_callback:
                 on_result_callback(selected)
@@ -139,7 +132,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
         if st.button("Column 2", key="quick_2nd_col", use_container_width=True,
                     help="2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35"):
             # Select a random number from the second column
-            import random
             selected = str(random.choice([2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35]))
             if on_result_callback:
                 on_result_callback(selected)
@@ -148,7 +140,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
         if st.button("Column 3", key="quick_3rd_col", use_container_width=True,
                     help="3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36"):
             # Select a random number from the third column
-            import random
             selected = str(random.choice([3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]))
             if on_result_callback:
                 on_result_callback(selected)
@@ -158,7 +149,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col1:
         if st.button("LOW (1-18)", key="quick_low", use_container_width=True):
             # Select a random low number
-            import random
             selected = str(random.choice(range(1, 19)))
             if on_result_callback:
                 on_result_callback(selected)
@@ -166,7 +156,6 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
     with col2:
         if st.button("HIGH (19-36)", key="quick_high", use_container_width=True):
             # Select a random high number
-            import random
             selected = str(random.choice(range(19, 37)))
             if on_result_callback:
                 on_result_callback(selected)
