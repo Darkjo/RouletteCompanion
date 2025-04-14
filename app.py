@@ -619,7 +619,7 @@ with tab4:
             bet_type_main, bet_value = bet_type, None
         
         # Run simulation button
-        if st.button("Run Simulation", key="sim_btn_agent"):
+        if st.button("Run Simulation"):
             # Reset the strategy and performance tracker
             st.session_state.strategy_engine.reset_strategy(sim_strategy)
             
@@ -833,7 +833,7 @@ with tab5:
         bankroll = st.number_input("Initial bankroll (units):", min_value=10, value=100, step=10)
         bet_size = st.number_input("Bet size (units):", min_value=1, value=1, step=1)
         
-        if st.button("Run Simulation", key="sim_btn_stats"):
+        if st.button("Run Simulation"):
             results = st.session_state.analyzer.simulate_betting(
                 spins_df, 
                 betting_pattern, 
