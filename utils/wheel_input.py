@@ -51,72 +51,199 @@ def create_roulette_wheel_input(roulette_type="European"):
     selected_number = None
     
     with tab1:
-        st.write("Click on the wheel sector to select a number:")
+        st.write("Select a number from the roulette wheel:")
         
-        # Create a circular layout
-        num_sectors = len(wheel_numbers)
-        angles = np.linspace(0, 2*np.pi, num_sectors, endpoint=False)
+        # Create a more reliable visual representation using a grid layout
+        st.write("### Roulette Wheel Layout")
         
-        # Create a polar chart for the wheel
-        fig = go.Figure()
+        # Display a more aesthetic header explaining the wheel
+        st.markdown("""
+        <style>
+        .wheel-header {
+            background-color: #1E1E1E;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        </style>
+        <div class="wheel-header">
+            <h4 style="color: white; margin: 0;">🎰 Standard {0} Roulette Wheel 🎰</h4>
+        </div>
+        """.format(roulette_type), unsafe_allow_html=True)
         
-        # Add sectors
-        for i, (num, angle) in enumerate(zip(wheel_numbers, angles)):
-            # Add sector as marker with improved visual contrast
-            next_angle = angles[(i+1) % num_sectors]
-            angle_range = np.linspace(angle, next_angle, 20)
+        # Create a visual grid representation of the wheel
+        # We'll arrange the numbers in concentric circular patterns
+        
+        # For European wheel
+        if roulette_type == "European":
+            # Green (0) in the center
+            center_col = st.columns(3)
+            with center_col[1]:
+                if st.button("0", key="wheel_center_0", 
+                            use_container_width=True,
+                            type="primary"):
+                    selected_number = "0"
             
-            # Adjust sector colors for better visibility
-            actual_color = colors[num]
-            if actual_color == 'red':
-                actual_color = '#FF2222'  # Brighter red
-            elif actual_color == 'black':
-                actual_color = '#111111'  # Not 100% black for better contrast
-            elif actual_color == 'green':
-                actual_color = '#00AA00'  # Medium green
-                
-            fig.add_trace(go.Scatterpolar(
-                r=[0.9] * len(angle_range),
-                theta=np.degrees(angle_range),
-                mode='lines',
-                fill='toself',
-                fillcolor=actual_color,
-                line=dict(color='white', width=2),  # Thicker white border
-                name=num,
-                hoverinfo='name'
-            ))
+            # First inner circle (red and black alternating)
+            st.write("##### Inner Circle")
+            inner_cols = st.columns(6)
+            inner_numbers = ["32", "15", "19", "4", "21", "2"]
+            for i, num in enumerate(inner_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with inner_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_inner_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
             
-            # Add number labels with better contrast
-            mid_angle = (angle + next_angle) / 2
-            # Use white text for red and black backgrounds, black text for green
-            text_color = 'black' if colors[num] == 'green' else 'white'
-            fig.add_trace(go.Scatterpolar(
-                r=[0.7],
-                theta=[np.degrees(mid_angle)],
-                mode='text',
-                text=[num],
-                textfont=dict(color=text_color, size=14, family='Arial Black'),
-                hoverinfo='skip',
-                name=''
-            ))
-        
-        # Update layout for nice wheel appearance
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=False, range=[0, 1]),
-                angularaxis=dict(visible=False),
-                bgcolor="rgba(240, 240, 240, 0.8)"  # Light gray background for better contrast
-            ),
-            showlegend=False,
-            margin=dict(t=20, b=20, l=20, r=20),
-            height=650,
-            width=650,
-            paper_bgcolor="rgba(255, 255, 255, 0.95)"  # Almost white paper background
-        )
-        
-        # Use Streamlit's experimental plotly events to capture clicks
-        # Since this isn't supported directly, we'll use a workaround with buttons
-        st.plotly_chart(fig)
+            # Second circle
+            st.write("##### Middle Circle")
+            middle_cols1 = st.columns(6)
+            middle_numbers1 = ["25", "17", "34", "6", "27", "13"]
+            for i, num in enumerate(middle_numbers1):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with middle_cols1[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_middle1_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            middle_cols2 = st.columns(6)
+            middle_numbers2 = ["36", "11", "30", "8", "23", "10"]
+            for i, num in enumerate(middle_numbers2):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with middle_cols2[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_middle2_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            # Outer circle
+            st.write("##### Outer Circle")
+            outer_cols1 = st.columns(6)
+            outer_numbers1 = ["5", "24", "16", "33", "1", "20"]
+            for i, num in enumerate(outer_numbers1):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with outer_cols1[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_outer1_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            outer_cols2 = st.columns(6)
+            outer_numbers2 = ["14", "31", "9", "22", "18", "29"]
+            for i, num in enumerate(outer_numbers2):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with outer_cols2[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_outer2_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            outer_cols3 = st.columns(6)
+            outer_numbers3 = ["7", "28", "12", "35", "3", "26"]
+            for i, num in enumerate(outer_numbers3):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with outer_cols3[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_outer3_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+                        
+        # For American wheel
+        else:
+            # Green (0 and 00) in the center
+            center_cols = st.columns(4)
+            with center_cols[1]:
+                if st.button("0", key="wheel_center_0", 
+                           use_container_width=True,
+                           type="primary"):
+                    selected_number = "0"
+            with center_cols[2]:
+                if st.button("00", key="wheel_center_00", 
+                           use_container_width=True,
+                           type="primary"):
+                    selected_number = "00"
+            
+            # Create rows of numbers for American wheel layout
+            st.write("##### First Row")
+            row1_cols = st.columns(6)
+            row1_numbers = ["28", "9", "26", "30", "11", "7"]
+            for i, num in enumerate(row1_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with row1_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_row1_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            st.write("##### Second Row")
+            row2_cols = st.columns(6)
+            row2_numbers = ["20", "32", "17", "5", "22", "34"]
+            for i, num in enumerate(row2_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with row2_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_row2_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            st.write("##### Third Row")
+            row3_cols = st.columns(6)
+            row3_numbers = ["15", "3", "24", "36", "13", "1"]
+            for i, num in enumerate(row3_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with row3_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_row3_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            st.write("##### Fourth Row")
+            row4_cols = st.columns(6)
+            row4_numbers = ["27", "10", "25", "29", "12", "8"]
+            for i, num in enumerate(row4_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with row4_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_row4_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            st.write("##### Fifth Row")
+            row5_cols = st.columns(6)
+            row5_numbers = ["19", "31", "18", "6", "21", "33"]
+            for i, num in enumerate(row5_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with row5_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_row5_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
+            
+            st.write("##### Sixth Row")
+            row6_cols = st.columns(6)
+            row6_numbers = ["16", "4", "23", "35", "14", "2"]
+            for i, num in enumerate(row6_numbers):
+                button_type = "primary" if colors[num] == "green" else "secondary"
+                button_color = "red" if int(num) in red_numbers else "black"
+                with row6_cols[i]:
+                    if st.button(f"{num} ({button_color})", key=f"wheel_row6_{num}", 
+                               use_container_width=True,
+                               type=button_type):
+                        selected_number = num
         
         # Create a grid of buttons for number selection
         st.subheader("Select a number:")
