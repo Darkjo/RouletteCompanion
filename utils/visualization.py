@@ -53,14 +53,13 @@ class RouletteVisualizer:
             customdata=recent_spins['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
         ))
         
-        # Add a roulette wheel visualization at the bottom
-        wheel_fig = self._create_roulette_wheel(recent_spins.iloc[-1]['number'], roulette_type)
+        # No need to create a separate wheel figure anymore since we're using subplots directly
         
         # Create a subplot with the main chart and the wheel
         fig = make_subplots(
             rows=2, cols=1,
             row_heights=[0.7, 0.3],
-            specs=[[{"type": "scatter"}], [{"type": "figure"}]]
+            specs=[[{"type": "scatter"}], [{"type": "scatter"}]]
         )
         
         # Add the scatter plot to the top subplot
