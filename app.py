@@ -18,6 +18,7 @@ from utils.strategies import StrategyEngine
 from utils.strategy_selector import choose_strategy, get_bet_size_recommendation, get_strategy_description
 from utils.wheel_input import create_roulette_wheel_input, create_file_importer
 from utils.quick_input import add_floating_quick_input
+from utils.live_casino_input import create_live_casino_panel
 from utils.web_scraper import create_web_scraper_ui
 
 # Set page configuration
@@ -171,7 +172,7 @@ with tab1:
     # Input section for new spins with tabs for different input methods
     st.subheader("Record New Spin")
     
-    data_input_tabs = st.tabs(["Visual Wheel Input", "Manual Entry", "Import from File", "Web Scraper"])
+    data_input_tabs = st.tabs(["Visual Wheel Input", "Manual Entry", "Live Casino Input", "Import from File", "Web Scraper"])
     
     with data_input_tabs[0]:
         # Visual wheel input
@@ -246,6 +247,10 @@ with tab1:
             st.rerun()  # Refresh the page to show updated data
     
     with data_input_tabs[2]:
+        # Live Casino Input
+        create_live_casino_panel(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
+    
+    with data_input_tabs[3]:
         # Import from file
         imported_data = create_file_importer()
         
@@ -265,7 +270,7 @@ with tab1:
                 st.success(f"Successfully imported {len(imported_data)} spins!")
                 st.rerun()  # Refresh the page to show updated data
     
-    with data_input_tabs[3]:
+    with data_input_tabs[4]:
         # Web scraper for roulette data
         st.write("""
         Use the web scraper to import roulette spin data from websites.
