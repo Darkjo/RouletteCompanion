@@ -18,6 +18,7 @@ from utils.strategies import StrategyEngine
 from utils.strategy_selector import choose_strategy, get_bet_size_recommendation, get_strategy_description
 from utils.wheel_input import create_roulette_wheel_input, create_file_importer
 from utils.quick_input import add_floating_quick_input
+from utils.web_scraper import create_web_scraper_ui
 
 # Set page configuration
 st.set_page_config(
@@ -170,7 +171,7 @@ with tab1:
     # Input section for new spins with tabs for different input methods
     st.subheader("Record New Spin")
     
-    data_input_tabs = st.tabs(["Visual Wheel Input", "Manual Entry", "Import from File"])
+    data_input_tabs = st.tabs(["Visual Wheel Input", "Manual Entry", "Import from File", "Web Scraper"])
     
     with data_input_tabs[0]:
         # Visual wheel input
@@ -262,6 +263,32 @@ with tab1:
                     )
                 
                 st.success(f"Successfully imported {len(imported_data)} spins!")
+                st.rerun()  # Refresh the page to show updated data
+    
+    with data_input_tabs[3]:
+        # Web scraper for roulette data
+        st.write("""
+        Use the web scraper to import roulette spin data from websites.
+        Enter the URL of a page containing roulette spin results.
+        """)
+        
+        # Create the web scraper UI
+        scraped_data = create_web_scraper_ui()
+        
+        if scraped_data is not None:
+            with st.spinner("Importing scraped data..."):
+                # Add each spin to the session
+                for _, row in scraped_data.iterrows():
+                    number = row['number']
+                    timestamp = row['timestamp'] if 'timestamp' in row else datetime.now()
+                    
+                    st.session_state.roulette_data.add_spin(
+                        session_name=st.session_state.current_session,
+                        number=str(number),
+                        timestamp=timestamp
+                    )
+                
+                st.success(f"Successfully imported {len(scraped_data)} spins from web!")
                 st.rerun()  # Refresh the page to show updated data
     
     # Display the current session's spin history
