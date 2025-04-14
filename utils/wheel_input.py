@@ -128,23 +128,23 @@ def create_roulette_wheel_input(roulette_type="European"):
             if st.button("🔴 Red Number", use_container_width=True):
                 # Select a random red number
                 red_nums = [str(num) for num in red_numbers]
-                selected_number = np.random.choice(red_nums)
+                selected_number = random.choice(red_nums)
             
             if st.button("⚫ Black Number", use_container_width=True):
                 # Select a random black number
                 black_nums = [n for n in wheel_numbers if n != '0' and n != '00' and n not in [str(num) for num in red_numbers]]
-                selected_number = np.random.choice(black_nums)
+                selected_number = random.choice(black_nums)
             
             if st.button("Even Number", use_container_width=True):
                 # Select a random even number
                 even_nums = [str(num) for num in range(2, 37, 2)]
-                selected_number = np.random.choice(even_nums)
+                selected_number = random.choice(even_nums)
                 
         with col2:
             if st.button("Odd Number", use_container_width=True):
                 # Select a random odd number
                 odd_nums = [str(num) for num in range(1, 37, 2)]
-                selected_number = np.random.choice(odd_nums)
+                selected_number = random.choice(odd_nums)
             
             if st.button("Green (0)", use_container_width=True):
                 selected_number = '0'
@@ -161,17 +161,17 @@ def create_roulette_wheel_input(roulette_type="European"):
         with col1:
             if st.button("1-12 (First Dozen)", use_container_width=True):
                 first_dozen = [str(num) for num in range(1, 13)]
-                selected_number = np.random.choice(first_dozen)
+                selected_number = random.choice(first_dozen)
                 
         with col2:
             if st.button("13-24 (Second Dozen)", use_container_width=True):
                 second_dozen = [str(num) for num in range(13, 25)]
-                selected_number = np.random.choice(second_dozen)
+                selected_number = random.choice(second_dozen)
                 
         with col3:
             if st.button("25-36 (Third Dozen)", use_container_width=True):
                 third_dozen = [str(num) for num in range(25, 37)]
-                selected_number = np.random.choice(third_dozen)
+                selected_number = random.choice(third_dozen)
                 
     with tab3:
         st.write("Enter the spin result manually:")
