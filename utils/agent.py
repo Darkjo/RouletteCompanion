@@ -4,6 +4,7 @@ Based on the implementation from ProjectR
 """
 
 import random
+import pandas as pd
 from collections import defaultdict
 
 class RLAgent:
@@ -159,3 +160,303 @@ class RLAgent:
                 'win_rate': win_rate
             })
         return summary_list
+        
+    def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll):
+        """
+        Provide specific number and bet recommendations based on statistical analysis.
+        
+        Args:
+            spins_df (pd.DataFrame): DataFrame with spin data
+            roulette_type (str): Type of roulette - 'European' or 'American'
+            bankroll (float): Current bankroll amount
+            
+        Returns:
+            dict: Detailed recommendations with confidence scores
+        """
+        if spins_df is None or len(spins_df) < 10:
+            return {
+                "single_numbers": [],
+                "columns": {"recommendation": None, "confidence": 0},
+                "dozens": {"recommendation": None, "confidence": 0},
+                "red_black": {"recommendation": None, "confidence": 0},
+                "even_odd": {"recommendation": None, "confidence": 0},
+                "high_low": {"recommendation": None, "confidence": 0},
+                "split_bets": [],
+                "confidence_explanation": "Not enough data for reliable recommendations (minimum 10 spins needed)"
+            }
+            
+        # Initialize result structure
+        result = {
+            "single_numbers": [],
+            "columns": {"recommendation": None, "confidence": 0},
+            "dozens": {"recommendation": None, "confidence": 0},
+            "red_black": {"recommendation": None, "confidence": 0},
+            "even_odd": {"recommendation": None, "confidence": 0},
+            "high_low": {"recommendation": None, "confidence": 0},
+            "split_bets": [],
+            "confidence_explanation": ""
+        }
+        
+        # Define colors for roulette numbers
+        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+        
+        # 1. Single Numbers Analysis
+        # Get the frequency of each number
+        number_counts = spins_df['number'].value_counts()
+        total_spins = len(spins_df)
+        
+        # For European roulette, expected probability is 1/37, for American 1/38
+        expected_prob = 1/37 if roulette_type == "European" else 1/38
+        
+        # Find numbers that appear more frequently than expected
+        hot_numbers = []
+        for num, count in number_counts.items():
+            # Skip 0 and 00 for simplicity
+            if num in ['0', '00']: 
+                continue
+                
+            observed_prob = count / total_spins
+            deviation = observed_prob / expected_prob
+            
+            # Consider as "hot" if it appears at least 1.5x more than expected
+            if deviation >= 1.5:
+                confidence = min(0.9, (deviation - 1) * 0.5)  # Cap confidence at 90%
+                hot_numbers.append({
+                    'number': num,
+                    'count': count,
+                    'frequency': f"{round(observed_prob * 100, 1)}%",
+                    'deviation': round(deviation, 2),
+                    'confidence': round(confidence, 2)
+                })
+        
+        # Sort by deviation and take top 3
+        hot_numbers = sorted(hot_numbers, key=lambda x: x['deviation'], reverse=True)[:3]
+        result["single_numbers"] = hot_numbers
+        
+        # 2. Column Analysis
+        col1_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) % 3 == 1)
+        col2_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) % 3 == 2)
+        col3_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) % 3 == 0 and int(num) > 0)
+        
+        column_counts = {
+            "1st column": col1_count,
+            "2nd column": col2_count,
+            "3rd column": col3_count
+        }
+        
+        # Find the column with highest frequency
+        best_column = max(column_counts, key=column_counts.get)
+        max_count = column_counts[best_column]
+        
+        # Calculate confidence based on deviation from expected
+        total_column_spins = col1_count + col2_count + col3_count
+        expected_col_count = total_column_spins / 3
+        
+        if total_column_spins > 0:
+            column_deviation = max_count / expected_col_count
+            column_confidence = min(0.9, (column_deviation - 1) * 1.5)
+            
+            # Only recommend if confidence is above threshold
+            if column_confidence > 0.2:
+                result["columns"] = {
+                    "recommendation": best_column,
+                    "counts": column_counts,
+                    "confidence": round(column_confidence, 2)
+                }
+        
+        # 3. Dozen Analysis
+        first_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and 1 <= int(num) <= 12)
+        second_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and 13 <= int(num) <= 24)
+        third_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and 25 <= int(num) <= 36)
+        
+        dozen_counts = {
+            "1st dozen (1-12)": first_dozen,
+            "2nd dozen (13-24)": second_dozen,
+            "3rd dozen (25-36)": third_dozen
+        }
+        
+        best_dozen = max(dozen_counts, key=dozen_counts.get)
+        max_dozen_count = dozen_counts[best_dozen]
+        
+        total_dozen_spins = first_dozen + second_dozen + third_dozen
+        expected_dozen_count = total_dozen_spins / 3
+        
+        if total_dozen_spins > 0:
+            dozen_deviation = max_dozen_count / expected_dozen_count
+            dozen_confidence = min(0.9, (dozen_deviation - 1) * 1.5)
+            
+            if dozen_confidence > 0.2:
+                result["dozens"] = {
+                    "recommendation": best_dozen,
+                    "counts": dozen_counts,
+                    "confidence": round(dozen_confidence, 2)
+                }
+        
+        # 4. Red/Black Analysis
+        red_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) in red_numbers)
+        black_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) > 0 and int(num) not in red_numbers)
+        
+        color_counts = {"red": red_count, "black": black_count}
+        best_color = max(color_counts, key=color_counts.get)
+        max_color_count = color_counts[best_color]
+        
+        total_color_spins = red_count + black_count
+        expected_color_count = total_color_spins / 2
+        
+        if total_color_spins > 0:
+            color_deviation = max_color_count / expected_color_count
+            color_confidence = min(0.8, (color_deviation - 1) * 2.0)
+            
+            if color_confidence > 0.15:
+                result["red_black"] = {
+                    "recommendation": best_color,
+                    "counts": color_counts,
+                    "confidence": round(color_confidence, 2)
+                }
+        
+        # 5. Even/Odd Analysis
+        even_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) > 0 and int(num) % 2 == 0)
+        odd_count = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) > 0 and int(num) % 2 == 1)
+        
+        even_odd_counts = {"even": even_count, "odd": odd_count}
+        best_parity = max(even_odd_counts, key=even_odd_counts.get)
+        max_parity_count = even_odd_counts[best_parity]
+        
+        total_parity_spins = even_count + odd_count
+        expected_parity_count = total_parity_spins / 2
+        
+        if total_parity_spins > 0:
+            parity_deviation = max_parity_count / expected_parity_count
+            parity_confidence = min(0.8, (parity_deviation - 1) * 2.0)
+            
+            if parity_confidence > 0.15:
+                result["even_odd"] = {
+                    "recommendation": best_parity,
+                    "counts": even_odd_counts,
+                    "confidence": round(parity_confidence, 2)
+                }
+        
+        # 6. High/Low Analysis
+        low_count = sum(1 for num in spins_df['number'] if num.isdigit() and 1 <= int(num) <= 18)
+        high_count = sum(1 for num in spins_df['number'] if num.isdigit() and 19 <= int(num) <= 36)
+        
+        high_low_counts = {"low (1-18)": low_count, "high (19-36)": high_count}
+        best_range = max(high_low_counts, key=high_low_counts.get)
+        max_range_count = high_low_counts[best_range]
+        
+        total_range_spins = low_count + high_count
+        expected_range_count = total_range_spins / 2
+        
+        if total_range_spins > 0:
+            range_deviation = max_range_count / expected_range_count
+            range_confidence = min(0.8, (range_deviation - 1) * 2.0)
+            
+            if range_confidence > 0.15:
+                result["high_low"] = {
+                    "recommendation": best_range,
+                    "counts": high_low_counts,
+                    "confidence": round(range_confidence, 2)
+                }
+        
+        # 7. Split Bet Analysis
+        if hot_numbers:
+            # Find potential split bets using hot numbers
+            split_bets = []
+            for hot_num_data in hot_numbers:
+                hot_num = int(hot_num_data['number'])
+                # Find adjacent numbers on the roulette layout
+                # This is a simplified approach - actual adjacency depends on roulette wheel layout
+                adjacent_numbers = self._get_adjacent_numbers(hot_num)
+                
+                for adj_num in adjacent_numbers:
+                    adj_count = number_counts.get(str(adj_num), 0)
+                    if adj_count > 0:
+                        combined_frequency = (hot_num_data['count'] + adj_count) / total_spins
+                        # Expected frequency for 2 numbers
+                        expected_split_freq = expected_prob * 2
+                        split_deviation = combined_frequency / expected_split_freq
+                        
+                        if split_deviation > 1.3:
+                            split_confidence = min(0.85, (split_deviation - 1) * 0.7)
+                            split_bets.append({
+                                'numbers': f"{hot_num}/{adj_num}",
+                                'combined_count': hot_num_data['count'] + adj_count,
+                                'deviation': round(split_deviation, 2),
+                                'confidence': round(split_confidence, 2)
+                            })
+            
+            # Sort by deviation and take top 2
+            split_bets = sorted(split_bets, key=lambda x: x['deviation'], reverse=True)[:2]
+            result["split_bets"] = split_bets
+        
+        # Add explanation based on amount of data
+        if total_spins < 20:
+            result["confidence_explanation"] = "Limited data available (fewer than 20 spins). Recommendations are not highly reliable."
+        elif total_spins < 50:
+            result["confidence_explanation"] = "Moderate amount of data (fewer than 50 spins). Recommendations have medium reliability."
+        else:
+            result["confidence_explanation"] = "Good data sample size. Recommendations have higher reliability, but remember that roulette remains a game of chance."
+        
+        # Include recommendation for bet sizing based on bankroll and confidence
+        highest_confidence = max(
+            [result["columns"]["confidence"] if result["columns"]["recommendation"] else 0,
+             result["dozens"]["confidence"] if result["dozens"]["recommendation"] else 0,
+             result["red_black"]["confidence"] if result["red_black"]["recommendation"] else 0,
+             result["even_odd"]["confidence"] if result["even_odd"]["recommendation"] else 0,
+             result["high_low"]["confidence"] if result["high_low"]["recommendation"] else 0,
+             *[num["confidence"] for num in result["single_numbers"]],
+             *[split["confidence"] for split in result["split_bets"]],
+             0]  # Include 0 to avoid empty list
+        )
+        
+        bet_size = self.get_bet_size_recommendation(bankroll)
+        
+        # Adjust bet size based on confidence
+        if highest_confidence > 0.6:
+            # Slightly increase bet for high confidence
+            bet_size = round(bet_size * 1.2, 1)
+        elif highest_confidence < 0.3:
+            # Reduce bet for low confidence
+            bet_size = round(bet_size * 0.8, 1)
+            
+        result["recommended_bet_size"] = bet_size
+        result["highest_confidence"] = round(highest_confidence, 2)
+        
+        return result
+        
+    def _get_adjacent_numbers(self, number):
+        """
+        Get adjacent numbers on a standard roulette layout for split betting.
+        
+        Args:
+            number (int): The central number
+            
+        Returns:
+            list: Adjacent numbers for potential split bets
+        """
+        # Edge cases
+        if number == 0:
+            return [1, 2, 3]
+        
+        # Special cases for numbers on the edges
+        if number % 3 == 1:  # Left column: 1, 4, 7, 10, etc.
+            if number == 1:
+                return [2, 4]
+            elif number == 34:
+                return [31, 35]
+            else:
+                return [number+1, number-3, number+3]
+        elif number % 3 == 0:  # Right column: 3, 6, 9, 12, etc.
+            if number == 3:
+                return [2, 6]
+            elif number == 36:
+                return [33, 35]
+            else:
+                return [number-1, number-3, number+3]
+        else:  # Middle column: 2, 5, 8, 11, etc.
+            if number == 2:
+                return [1, 3, 5]
+            elif number == 35:
+                return [32, 34, 36]
+            else:
+                return [number-1, number+1, number-3, number+3]
