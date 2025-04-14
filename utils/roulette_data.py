@@ -7,6 +7,12 @@ import os
 class RouletteData:
     """
     Class to handle roulette data storage, retrieval, and manipulation.
+    
+    Features:
+    - Auto-saves data after any modification (adding spins, creating/deleting sessions)
+    - Auto-loads data when initialized
+    - Handles multiple roulette sessions with different wheel types
+    - Manages all spin history with properties (color, even/odd, etc.)
     """
     def __init__(self):
         # Initialize with empty sessions dictionary

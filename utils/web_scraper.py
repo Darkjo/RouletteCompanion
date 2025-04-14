@@ -168,7 +168,65 @@ def create_web_scraper_ui():
                     st.subheader("📋 Scraped Data Preview")
                     
                     # Allow editing the data before importing
-                    st.write("Review and edit the data before importing:")
+                    st.write("Review and edit the scraped numbers before importing:")
+                    
+                    # Show numbers in a grid layout similar to live casino input
+                    st.write("#### Click to import individual numbers:")
+                    
+                    # Define colors for the numbers
+                    red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+                    
+                    # Show all found numbers in a more compact view first
+                    st.write("**Scraped Numbers:**")
+                    found_nums = [n for n in df['number']]
+                    st.write(f"{', '.join(found_nums)}")
+                    
+                    # Grid for zeros
+                    cols = st.columns(2)
+                    with cols[0]:
+                        if "0" in found_nums and st.button("0", key="scraped_0", use_container_width=True, type="primary"):
+                            # Return a single number to be imported
+                            single_df = pd.DataFrame({
+                                'number': ["0"],
+                                'timestamp': [datetime.now()]
+                            })
+                            return single_df
+                    
+                    with cols[1]:
+                        if "00" in found_nums and st.button("00", key="scraped_00", use_container_width=True, type="primary"):
+                            # Return a single number to be imported
+                            single_df = pd.DataFrame({
+                                'number': ["00"],
+                                'timestamp': [datetime.now()]
+                            })
+                            return single_df
+                    
+                    # Create a grid for regular numbers (1-36)
+                    num_cols = 6
+                    num_rows = 6
+                    for row in range(num_rows):
+                        row_cols = st.columns(num_cols)
+                        for col in range(num_cols):
+                            num = row * num_cols + col + 1
+                            str_num = str(num)
+                            
+                            if str_num in found_nums:
+                                is_red = num in red_numbers
+                                button_color = "♦️" if is_red else "♠️"
+                                
+                                with row_cols[col]:
+                                    if st.button(f"{button_color} {num}", key=f"scraped_{num}", use_container_width=True):
+                                        # Return a single number to be imported
+                                        single_df = pd.DataFrame({
+                                            'number': [str_num],
+                                            'timestamp': [datetime.now()]
+                                        })
+                                        return single_df
+                    
+                    st.write("---")
+                    
+                    # Bulk import option
+                    st.write("#### Or import all numbers at once:")
                     
                     # Convert to a format that can be edited
                     edited_df = st.data_editor(
@@ -193,7 +251,7 @@ def create_web_scraper_ui():
                     col1, col2 = st.columns([3, 1])
                     
                     with col1:
-                        if st.button("✅ Import Edited Data", key="confirm_scrape", use_container_width=True):
+                        if st.button("✅ Import All Numbers", key="confirm_scrape", use_container_width=True):
                             # Validate the numbers before returning
                             valid_numbers = []
                             for idx, row in edited_df.iterrows():
