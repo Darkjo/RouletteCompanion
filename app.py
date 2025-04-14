@@ -12,6 +12,10 @@ from utils.roulette_data import RouletteData
 from utils.analysis import RouletteAnalyzer
 from utils.betting_strategies import BettingStrategist
 from utils.visualization import RouletteVisualizer
+from utils.agent import RLAgent
+from utils.performance_tracker import StrategyPerformanceTracker
+from utils.strategies import StrategyEngine
+from utils.strategy_selector import choose_strategy, get_bet_size_recommendation, get_strategy_description
 
 # Set page configuration
 st.set_page_config(
@@ -34,6 +38,19 @@ if 'strategist' not in st.session_state:
 if 'visualizer' not in st.session_state:
     st.session_state.visualizer = RouletteVisualizer()
     
+# New components from ProjectR
+if 'agent' not in st.session_state:
+    st.session_state.agent = RLAgent()
+    
+if 'performance_tracker' not in st.session_state:
+    st.session_state.performance_tracker = StrategyPerformanceTracker()
+    
+if 'strategy_engine' not in st.session_state:
+    st.session_state.strategy_engine = StrategyEngine()
+    
+if 'bankroll' not in st.session_state:
+    st.session_state.bankroll = 100.0
+    
 if 'current_session' not in st.session_state:
     st.session_state.current_session = "Default Session"
     
@@ -53,6 +70,24 @@ with st.sidebar:
         options=["European", "American"],
         index=0
     )
+    
+    # Bankroll management
+    st.subheader("Bankroll Management")
+    current_bankroll = st.number_input(
+        "Current Bankroll ($):",
+        min_value=10.0,
+        max_value=10000.0,
+        value=st.session_state.bankroll,
+        step=10.0
+    )
+    
+    # Update session state when bankroll changes
+    if current_bankroll != st.session_state.bankroll:
+        st.session_state.bankroll = current_bankroll
+    
+    # Display recommended bet size based on bankroll
+    rec_bet_size = get_bet_size_recommendation(st.session_state.bankroll)
+    st.info(f"Recommended bet size: ${rec_bet_size:.2f}")
     
     # Session management
     st.subheader("Session Management")
@@ -114,7 +149,7 @@ with st.sidebar:
             st.error("No saved data found or error loading data.")
 
 # Main content area with tabs
-tab1, tab2, tab3, tab4 = st.tabs(["Spin Tracker", "Analysis", "Betting Suggestions", "Statistics"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Spin Tracker", "Analysis", "Betting Suggestions", "Advanced Strategy Agent", "Statistics"])
 
 # Tab 1: Spin Tracker
 with tab1:
@@ -406,8 +441,206 @@ with tab3:
     else:
         st.info("No spin data available for betting suggestions. Please add spins in the Spin Tracker tab.")
 
-# Tab 4: Statistics
+# Tab 4: Advanced Strategy Agent
 with tab4:
+    st.header(f"Advanced Strategy Agent - {st.session_state.current_session}")
+    
+    # Get data for current session
+    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+    
+    if spins_df is not None and not spins_df.empty:
+        st.write("""
+        The Advanced Strategy Agent uses reinforcement learning to analyze your spin data 
+        and recommend optimal betting strategies based on your bankroll and the patterns detected.
+        """)
+        
+        # Display current bankroll and agent accuracy
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Current Bankroll", f"${st.session_state.bankroll:.2f}")
+        with col2:
+            st.metric("Agent Accuracy", f"{st.session_state.agent.get_accuracy() * 100:.1f}%")
+        with col3:
+            st.metric("Recommended Strategy", st.session_state.agent.get_recommendation(st.session_state.bankroll))
+        
+        # Agent recommendation section
+        st.subheader("Agent Strategy Recommendation")
+        
+        # Get agent recommendation
+        strategy_name = st.session_state.agent.get_recommendation(st.session_state.bankroll)
+        recommended_bet = st.session_state.agent.get_bet_size_recommendation(st.session_state.bankroll)
+        
+        # Display the recommendation
+        st.info(f"Based on your current bankroll (${st.session_state.bankroll:.2f}) and historical data, the agent recommends:")
+        st.markdown(f"**Strategy:** {strategy_name}")
+        st.markdown(f"**Bet Size:** ${recommended_bet:.2f}")
+        
+        # Get and display strategy details
+        strategy_details = get_strategy_description(strategy_name)
+        if strategy_details:
+            st.subheader("Strategy Details")
+            st.markdown(f"**Description:** {strategy_details.get('description', 'N/A')}")
+            st.markdown(f"**Risk Level:** {strategy_details.get('risk_level', 'N/A')}")
+            st.markdown(f"**Complexity:** {strategy_details.get('complexity', 'N/A')}")
+            st.markdown(f"**Bankroll Impact:** {strategy_details.get('bankroll_impact', 'N/A')}")
+            st.markdown(f"**Best For:** {strategy_details.get('best_for', 'N/A')}")
+            st.markdown(f"**Worst For:** {strategy_details.get('worst_for', 'N/A')}")
+        
+        # Simulation section
+        st.subheader("Strategy Simulation")
+        
+        # Get available strategies
+        available_strategies = st.session_state.strategy_engine.get_strategy_names()
+        
+        # Allow user to select strategy for simulation
+        sim_strategy = st.selectbox("Select Strategy to Simulate:", available_strategies)
+        
+        # Simulation parameters
+        col1, col2 = st.columns(2)
+        with col1:
+            sim_bankroll = st.number_input("Starting Bankroll:", 
+                                          min_value=10.0, 
+                                          max_value=10000.0, 
+                                          value=st.session_state.bankroll,
+                                          step=10.0)
+        with col2:
+            bet_size = st.number_input("Base Bet Size:", 
+                                     min_value=1.0, 
+                                     max_value=sim_bankroll/10,  # Max 10% of bankroll
+                                     value=recommended_bet,
+                                     step=1.0)
+        
+        # Bet type selection for simulation
+        bet_type = st.selectbox("Select Bet Type:", 
+                              ["red", "black", "even", "odd", "high", "low", 
+                               "dozen:first", "dozen:second", "dozen:third", 
+                               "column:first", "column:second", "column:third"])
+        
+        # Parse bet type and value
+        if ":" in bet_type:
+            bet_type_main, bet_value = bet_type.split(":")
+        else:
+            bet_type_main, bet_value = bet_type, None
+        
+        # Run simulation button
+        if st.button("Run Simulation"):
+            # Reset the strategy and performance tracker
+            st.session_state.strategy_engine.reset_strategy(sim_strategy)
+            
+            # Get the spin data as a list of numbers
+            spin_numbers = spins_df['number'].tolist()
+            
+            # Set up simulation variables
+            current_bankroll = sim_bankroll
+            results = []
+            win_count = 0
+            loss_count = 0
+            
+            # Set the base bet for the selected strategy
+            st.session_state.strategy_engine.set_base_bet(sim_strategy, bet_size)
+            
+            # Run through the simulation
+            for i, number in enumerate(spin_numbers):
+                # Get the current bet amount
+                current_bet = st.session_state.strategy_engine.get_bet_amount(
+                    sim_strategy, 
+                    i > 0 and results[-1]['win'] if results else False
+                )
+                
+                # Adjust if bet is more than current bankroll
+                current_bet = min(current_bet, current_bankroll)
+                
+                # Evaluate the bet
+                win, payout_multiple = st.session_state.strategy_engine.evaluate_bet(
+                    bet_type_main, 
+                    bet_value, 
+                    number
+                )
+                
+                # Calculate profit/loss
+                profit = current_bet * payout_multiple if win else -current_bet
+                
+                # Update bankroll
+                current_bankroll += profit
+                
+                # Track wins/losses
+                if win:
+                    win_count += 1
+                else:
+                    loss_count += 1
+                
+                # Record result
+                results.append({
+                    'spin': i + 1,
+                    'number': number,
+                    'bet_amount': current_bet,
+                    'win': win,
+                    'profit': profit,
+                    'bankroll': current_bankroll
+                })
+                
+                # Record in agent and performance tracker
+                st.session_state.agent.record_result(number, sim_strategy, win, profit)
+                st.session_state.performance_tracker.update(
+                    sim_strategy, 
+                    win, 
+                    profit, 
+                    current_bet
+                )
+                
+                # Break if bankrupt
+                if current_bankroll <= 0:
+                    break
+            
+            # Display simulation results
+            st.subheader("Simulation Results")
+            
+            # Key metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Final Bankroll", f"${current_bankroll:.2f}", 
+                        f"{(current_bankroll - sim_bankroll):.2f}")
+            with col2:
+                total_spins = win_count + loss_count
+                win_rate = (win_count / total_spins * 100) if total_spins > 0 else 0
+                st.metric("Win Rate", f"{win_rate:.1f}%")
+            with col3:
+                roi = ((current_bankroll - sim_bankroll) / sim_bankroll * 100) if sim_bankroll > 0 else 0
+                st.metric("ROI", f"{roi:.1f}%")
+            
+            # Results table
+            st.subheader("Detailed Results")
+            results_df = pd.DataFrame(results)
+            st.dataframe(results_df)
+            
+            # Bankroll chart
+            st.subheader("Bankroll Progression")
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=results_df['spin'], 
+                y=results_df['bankroll'],
+                mode='lines+markers',
+                name='Bankroll',
+                line=dict(color='blue', width=2)
+            ))
+            fig.update_layout(
+                title="Bankroll Progression During Simulation",
+                xaxis_title="Spin Number",
+                yaxis_title="Bankroll ($)",
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Update agent recommendation
+            st.subheader("Updated Agent Recommendation")
+            new_strategy = st.session_state.agent.get_recommendation(current_bankroll)
+            st.info(f"Based on the simulation results, the agent now recommends the {new_strategy} strategy.")
+    else:
+        st.info("No spin data available for strategy agent. Please add spins in the Spin Tracker tab.")
+
+# Tab 5: Statistics
+with tab5:
     st.header(f"Statistics - {st.session_state.current_session}")
     
     # Get data for current session
