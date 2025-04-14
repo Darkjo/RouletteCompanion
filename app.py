@@ -73,31 +73,8 @@ if 'fast_mode' not in st.session_state:
 # Application title
 st.title("🎰 Roulette Tracker and Analyzer")
 
-# Show update notification if present
-if "show_update_notification" in st.session_state and st.session_state.show_update_notification:
-    update_time = st.session_state.last_spin_time.strftime("%H:%M:%S")
-    update_number = st.session_state.last_spin_number
-    
-    # Create a container for the notification
-    notification = st.container()
-    with notification:
-        cols = st.columns([3, 1])
-        with cols[0]:
-            st.success(f"✅ Data updated at {update_time}: Added spin result **{update_number}**")
-        with cols[1]:
-            if st.button("Dismiss"):
-                st.session_state.show_update_notification = False
-                st.rerun()
-    
-    # Auto-dismiss after 8 seconds (same as our analysis window)
-    if "notification_start_time" not in st.session_state:
-        st.session_state.notification_start_time = time.time()
-    
-    # Check if 8 seconds have passed
-    if time.time() - st.session_state.notification_start_time > 8:
-        st.session_state.show_update_notification = False
-        st.session_state.notification_start_time = None
-        st.rerun()
+# Add a space for better UI layout
+st.write("")
 
 # Sidebar for settings and navigation
 with st.sidebar:

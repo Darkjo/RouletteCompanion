@@ -172,26 +172,17 @@ def add_floating_quick_input(session_name, roulette_data, roulette_type="Europea
     with st.expander("Quick Input Panel (Click to expand)"):
         def on_quick_result(number):
             # Add the spin with current timestamp
+            current_time = datetime.now()
             roulette_data.add_spin(
                 session_name=session_name,
                 number=number,
-                timestamp=datetime.now()
+                timestamp=current_time
             )
             
-            # Store information about the last spin for display
-            if "last_spin_time" not in st.session_state:
-                st.session_state.last_spin_time = datetime.now()
-                st.session_state.last_spin_number = number
-                st.session_state.show_update_notification = True
-            else:
-                st.session_state.last_spin_time = datetime.now()
-                st.session_state.last_spin_number = number
-                st.session_state.show_update_notification = True
+            # Just show a direct success message in the quick input panel
+            st.success(f"Added spin result: {number} at {current_time.strftime('%H:%M:%S')}")
             
-            # Show success message
-            st.success(f"Added spin result: {number}")
-            
-            # Rerun to refresh the UI
+            # Rerun to refresh the UI with the new data
             st.rerun()
             
         create_quick_input_panel(roulette_type, on_quick_result)
