@@ -640,11 +640,11 @@ with tab4:
                     number_str = str(number)
                 
                 # Add spin to test data
-                spin_data = {
-                    "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-                    "number": number_str
-                }
-                st.session_state.roulette_data.add_spin(st.session_state.current_session, spin_data)
+                st.session_state.roulette_data.add_spin(
+                    st.session_state.current_session, 
+                    number_str,
+                    timestamp
+                )
             
             st.success(f"Generated {sample_size} spins with {test_data_type} pattern for testing!")
     

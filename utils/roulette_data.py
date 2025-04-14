@@ -80,6 +80,21 @@ class RouletteData:
             self.sessions[session_name].pop()
             return True
         return False
+        
+    def clear_spin_history(self, session_name):
+        """
+        Clear all spins from a session.
+        
+        Args:
+            session_name (str): Name of the session
+            
+        Returns:
+            bool: True if successful, False if session doesn't exist
+        """
+        if session_name in self.sessions:
+            self.sessions[session_name] = []
+            return True
+        return False
     
     def get_session_data(self, session_name):
         """
