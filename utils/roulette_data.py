@@ -14,6 +14,9 @@ class RouletteData:
         self.session_types = {}
         self.data_file = "roulette_data.json"
         
+        # Automatically load saved data on initialization
+        self.load_data()
+        
     def create_session(self, session_name, roulette_type):
         """
         Create a new session with the specified name and roulette type.
@@ -25,6 +28,8 @@ class RouletteData:
         if session_name not in self.sessions:
             self.sessions[session_name] = []
             self.session_types[session_name] = roulette_type
+            # Auto-save after creating a new session
+            self.save_data()
             return True
         return False
     
@@ -38,6 +43,8 @@ class RouletteData:
         if session_name in self.sessions:
             del self.sessions[session_name]
             del self.session_types[session_name]
+            # Auto-save after deleting a session
+            self.save_data()
             return True
         return False
     

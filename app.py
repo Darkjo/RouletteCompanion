@@ -72,6 +72,9 @@ st.title("🎰 Roulette Tracker and Analyzer")
 with st.sidebar:
     st.header("Settings")
     
+    # Auto-save indicator
+    st.success("✓ Auto-Save Enabled: Your data is automatically saved and will be preserved between sessions.")
+    
     # Roulette type selection
     roulette_type = st.radio(
         "Select Roulette Type:",
@@ -131,8 +134,10 @@ with st.sidebar:
     # Data management
     st.subheader("Data Management")
     
+    st.info("💡 Note: Data is automatically saved after every change. Manual save/load is optional.")
+    
     # Save data to file
-    if st.button("Save All Data"):
+    if st.button("Manual Save"):
         success = st.session_state.roulette_data.save_data()
         if success:
             st.success("Data saved successfully!")
@@ -140,7 +145,7 @@ with st.sidebar:
             st.error("Failed to save data.")
     
     # Load data from file
-    if st.button("Load Data"):
+    if st.button("Reload Data"):
         success = st.session_state.roulette_data.load_data()
         if success:
             # Update session list
