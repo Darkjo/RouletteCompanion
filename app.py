@@ -817,6 +817,21 @@ with tab4:
         st.markdown(f"**Strategy:** {strategy_name}")
         st.markdown(f"**Bet Size:** ${recommended_bet:.2f}")
         
+        # Add note about fast mode for 8-second window
+        if len(spins_df) > 20:
+            st.markdown("""
+            **Quick Analysis Timer**: Roulette tables typically give you about 8 seconds between spins to place bets. 
+            Use the Fast Analysis mode below for quicker recommendations.
+            """)
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                fast_mode = st.toggle("Fast Analysis Mode (8-sec)", value=True, help="Enable for quick analysis suitable for live casino play.")
+            with col2:
+                if fast_mode:
+                    st.info("⚡ Fast mode enabled: Analysis optimized for 8-second decision window")
+                else:
+                    st.info("🔍 Comprehensive mode: Analysis may take longer but provides deeper insights")
+        
         # Get and display strategy details
         strategy_details = get_strategy_description(strategy_name)
         if strategy_details:
@@ -837,10 +852,16 @@ with tab4:
         """)
         
         # Get specific bet recommendations
+        # Initialize fast_mode toggle if not already present
+        if 'fast_mode' not in locals():
+            fast_mode = True
+        
+        # Pass the fast_mode parameter to the analysis
         specific_recommendations = st.session_state.agent.get_specific_bet_recommendations(
             spins_df, 
             current_roulette_type, 
-            st.session_state.bankroll
+            st.session_state.bankroll,
+            fast_mode
         )
         
         # Display recommendation confidence explanation

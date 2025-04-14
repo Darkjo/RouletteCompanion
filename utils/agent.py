@@ -225,7 +225,7 @@ class RLAgent:
         return summary_list
         
     @st.cache_data(ttl=10)  # Cache for just 10 seconds to ensure fresh data while avoiding recalculation
-    def get_cached_bet_recommendations(_self, spins_df, roulette_type, bankroll):
+    def get_cached_bet_recommendations(_self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Cached version of get_specific_bet_recommendations.
         The leading underscore in _self is required for Streamlit caching to work,
@@ -235,16 +235,20 @@ class RLAgent:
             spins_df (pd.DataFrame): DataFrame with spin data
             roulette_type (str): Type of roulette - 'European' or 'American'
             bankroll (float): Current bankroll amount
+            fast_mode (bool): When True, uses accelerated analysis for 8-second window
             
         Returns:
             dict: Detailed recommendations with confidence scores
         """
-        # Optimize for 8-second window between roulette spins
-        # Pass a data size hint to enable fast mode for large datasets
-        data_size = len(spins_df) if spins_df is not None else 0
-        return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode=(data_size > 20))
+        # If specific fast_mode wasn't provided, auto-detect based on data size
+        if not fast_mode:
+            data_size = len(spins_df) if spins_df is not None else 0
+            # Auto-enable fast mode for large datasets unless explicitly disabled
+            fast_mode = (data_size > 20)
+            
+        return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode=fast_mode)
     
-    def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll):
+    def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Provide specific number and bet recommendations based on statistical analysis.
         Uses caching and shows progress indicators for large datasets.
@@ -253,12 +257,13 @@ class RLAgent:
             spins_df (pd.DataFrame): DataFrame with spin data
             roulette_type (str): Type of roulette - 'European' or 'American'
             bankroll (float): Current bankroll amount
+            fast_mode (bool): When True, uses accelerated analysis suitable for 8-second window
             
         Returns:
             dict: Detailed recommendations with confidence scores
         """
-        # Use cached version
-        return self.get_cached_bet_recommendations(spins_df, roulette_type, bankroll)
+        # Use cached version, passing through the fast_mode parameter
+        return self.get_cached_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode)
         
     def _calculate_bet_recommendations(self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
@@ -311,15 +316,23 @@ class RLAgent:
         # Find numbers that appear more frequently than expected
         hot_numbers = []
         
-        # Show progress indicator for large datasets
+        # Show progress indicator for large datasets, but skip in fast mode
         progress_bar = None
-        if len(number_counts) > 30:
+        if len(number_counts) > 30 and not fast_mode:
             progress_bar = st.progress(0)
             st.caption("Analyzing number frequencies...")
-            
+        
         # Process in batches for better performance
         items = list(number_counts.items())
-        batch_size = 10
+        
+        # In fast mode, sort by count and only analyze the top numbers
+        if fast_mode:
+            items.sort(key=lambda x: x[1], reverse=True) 
+            # If we have many numbers, only check the top 10 most frequent ones
+            if len(items) > 10:
+                items = items[:10]
+            
+        batch_size = 10 if not fast_mode else 5
         
         for i in range(0, len(items), batch_size):
             # Process a batch of numbers
@@ -334,8 +347,10 @@ class RLAgent:
                 observed_prob = count / total_spins
                 deviation = observed_prob / expected_prob
                 
-                # Consider as "hot" if it appears at least 1.5x more than expected
-                if deviation >= 1.5:
+                # Consider as "hot" if it appears more than expected
+                # In fast mode, use a higher threshold to only focus on very significant deviations
+                threshold = 1.8 if fast_mode else 1.5
+                if deviation >= threshold:
                     confidence = min(0.9, (deviation - 1) * 0.5)  # Cap confidence at 90%
                     hot_numbers.append({
                         'number': num,
@@ -353,8 +368,10 @@ class RLAgent:
         if progress_bar is not None:
             progress_bar.empty()
         
-        # Sort by deviation and take top 3
-        hot_numbers = sorted(hot_numbers, key=lambda x: x['deviation'], reverse=True)[:3]
+        # Sort by deviation and take top numbers
+        # In fast mode, limit to 2 numbers for faster processing
+        max_hot = 2 if fast_mode else 3
+        hot_numbers = sorted(hot_numbers, key=lambda x: x['deviation'], reverse=True)[:max_hot]
         result["single_numbers"] = hot_numbers
         
         # 2. Column Analysis
@@ -483,21 +500,28 @@ class RLAgent:
                 }
         
         # 7. Split Bet Analysis
-        if hot_numbers:
+        if hot_numbers and (not fast_mode or len(hot_numbers) <= 2):
             # Find potential split bets using hot numbers
             split_bets = []
             
-            # Show progress for split bet analysis if there are a lot of hot numbers
+            # In fast mode, skip progress indicators to save time
             split_progress = None
-            if len(hot_numbers) >= 3:
+            if not fast_mode and len(hot_numbers) >= 3:
                 split_progress = st.progress(0)
                 st.caption("Analyzing split bet opportunities...")
             
-            for i, hot_num_data in enumerate(hot_numbers):
+            # In fast mode, only check the top 2 hot numbers to save time
+            hot_nums_to_check = hot_numbers[:min(2, len(hot_numbers))] if fast_mode else hot_numbers
+            
+            for i, hot_num_data in enumerate(hot_nums_to_check):
                 hot_num = int(hot_num_data['number'])
                 # Find adjacent numbers on the roulette layout
                 # This is a simplified approach - actual adjacency depends on roulette wheel layout
                 adjacent_numbers = self._get_adjacent_numbers(hot_num)
+                
+                # In fast mode, limit the number of adjacent numbers to check
+                if fast_mode and len(adjacent_numbers) > 2:
+                    adjacent_numbers = adjacent_numbers[:2]
                 
                 for adj_num in adjacent_numbers:
                     adj_count = number_counts.get(str(adj_num), 0)
@@ -507,7 +531,9 @@ class RLAgent:
                         expected_split_freq = expected_prob * 2
                         split_deviation = combined_frequency / expected_split_freq
                         
-                        if split_deviation > 1.3:
+                        # In fast mode, use a higher threshold for significance
+                        threshold = 1.5 if fast_mode else 1.3
+                        if split_deviation > threshold:
                             split_confidence = min(0.85, (split_deviation - 1) * 0.7)
                             split_bets.append({
                                 'numbers': f"{hot_num}/{adj_num}",
@@ -518,18 +544,19 @@ class RLAgent:
                 
                 # Update progress if shown
                 if split_progress is not None:
-                    split_progress.progress(min((i+1) / len(hot_numbers), 1.0))
+                    split_progress.progress(min((i+1) / len(hot_nums_to_check), 1.0))
             
             # Clear progress if shown
             if split_progress is not None:
                 split_progress.empty()
             
-            # Sort by deviation and take top 2
-            split_bets = sorted(split_bets, key=lambda x: x['deviation'], reverse=True)[:2]
+            # Sort by deviation and take top 2 (or just 1 in fast mode)
+            max_splits = 1 if fast_mode else 2
+            split_bets = sorted(split_bets, key=lambda x: x['deviation'], reverse=True)[:max_splits]
             result["split_bets"] = split_bets
             
-        # 8. Corner Bet Analysis
-        if hot_numbers:
+        # 8. Corner Bet Analysis - Skip in fast mode to save time
+        if hot_numbers and not fast_mode:
             corner_bets = self._find_corner_bets(hot_numbers, number_counts, total_spins, expected_prob)
             if corner_bets:
                 result["corner_bets"] = corner_bets
