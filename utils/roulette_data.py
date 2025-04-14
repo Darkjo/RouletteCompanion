@@ -67,6 +67,9 @@ class RouletteData:
         }
         
         self.sessions[session_name].append(spin_data)
+        
+        # Automatically save data after adding a spin
+        self.save_data()
         return True
     
     def remove_last_spin(self, session_name):
@@ -78,6 +81,8 @@ class RouletteData:
         """
         if session_name in self.sessions and self.sessions[session_name]:
             self.sessions[session_name].pop()
+            # Auto-save after removing a spin
+            self.save_data()
             return True
         return False
         
@@ -93,6 +98,8 @@ class RouletteData:
         """
         if session_name in self.sessions:
             self.sessions[session_name] = []
+            # Auto-save after clearing spin history
+            self.save_data()
             return True
         return False
     
