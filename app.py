@@ -371,11 +371,41 @@ with main_tab1:
                         st.error("❌ Could not recognize a valid roulette number in this image.")
                 
                 else:  # History Board
+                    # Add options for processing methods
+                    ocr_method = st.radio(
+                        "Choose processing method:",
+                        ["Standard (More accurate)", "Fast (Optimized for speed)"],
+                        horizontal=True,
+                        help="Standard is better for varied layouts, Fast is optimized for grid-based history boards with red/white numbers"
+                    )
+                    
                     # Add batch processing button
                     if st.button("Process History Board", type="primary", key="process_history"):
                         with st.spinner("Processing roulette history board..."):
-                            # Process the image to identify multiple numbers
-                            numbers = batch_process_history_board(image)
+                            if ocr_method == "Fast (Optimized for speed)":
+                                # Import our specialized fast OCR module
+                                try:
+                                    from utils.specialized_ocr import process_roulette_board
+                                    # Process with the specialized fast method
+                                    start_time = time.time()
+                                    # Try first with 8x6 layout (common for digital boards)
+                                    number_list = process_roulette_board(image, rows=6, cols=8)
+                                    if len(number_list) < 10:
+                                        # If that didn't find many numbers, try 6x8 layout
+                                        number_list = process_roulette_board(image, rows=8, cols=6)
+                                    
+                                    # Convert to the expected format
+                                    numbers = [(num, 0.8) for num in number_list]
+                                    processing_time = time.time() - start_time
+                                    
+                                    # Display timing info
+                                    st.info(f"Fast processing completed in {processing_time:.2f} seconds")
+                                except ImportError:
+                                    st.warning("Fast processing module not available, using standard method")
+                                    numbers = batch_process_history_board(image)
+                            else:
+                                # Use the standard method
+                                numbers = batch_process_history_board(image)
                             
                             if numbers and len(numbers) > 0:
                                 # Display the recognized numbers
