@@ -933,7 +933,30 @@ with tab4:
             
             # Display recommendation confidence explanation with animation
             with results_container:
-                # Removed animation delay
+                # Add a beginner-friendly confidence explanation section
+                with st.expander("🔍 Understanding Confidence Scores (Click to expand)", expanded=True):
+                    st.markdown("""
+                    ### What do Confidence Scores Mean?
+                    
+                    Confidence scores tell you how strongly the system believes in its recommendations:
+                    
+                    | Confidence Level | What It Means | Recommended Action |
+                    |------------------|---------------|-------------------|
+                    | **90-100%** | **Very Strong** | Consider these bets a top priority |
+                    | **75-89%** | **Strong** | Worth serious consideration |
+                    | **60-74%** | **Moderate** | Potentially valuable patterns detected |
+                    | **40-59%** | **Fair** | Some indication of a pattern |
+                    | **Below 40%** | **Weak** | Not enough evidence to recommend |
+                    
+                    **Key Points:**
+                    - Higher confidence means a stronger statistical pattern was detected
+                    - Even high confidence doesn't guarantee wins (it's still gambling!)
+                    - Confidence is based on how much a pattern deviates from random chance
+                    - More data (more spins) generally leads to more reliable confidence scores
+                    
+                    Remember: No betting system can beat the house edge in the long run. Use responsibly!
+                    """)
+                
                 # Display explanation if available, or adaptation message
                 if "confidence_explanation" in specific_recommendations:
                     st.info(specific_recommendations["confidence_explanation"])
