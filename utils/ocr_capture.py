@@ -313,13 +313,23 @@ def batch_process_history_board(image):
                 best_confidence = 0
                 
                 for config in ocr_configs:
-                    # Perform OCR with current configuration
-                    text = pytesseract.image_to_string(roi, config=config).strip()
-                    
-                    # Get confidence
-                    data = pytesseract.image_to_data(
-                        roi, config=config, output_type=pytesseract.Output.DICT
-                    )
+                    # Perform OCR with current configuration and handle None results
+                    try:
+                        text_result = pytesseract.image_to_string(roi, config=config)
+                        text = text_result.strip() if text_result is not None else ""
+                        
+                        # Get confidence - only if we got a valid text result
+                        if text:
+                            data = pytesseract.image_to_data(
+                                roi, config=config, output_type=pytesseract.Output.DICT
+                            )
+                        else:
+                            # Create empty data structure if no text was detected
+                            data = {'text': [], 'conf': []}
+                    except Exception as e:
+                        logger.debug(f"OCR processing error: {e}")
+                        text = ""
+                        data = {'text': [], 'conf': []}
                     
                     # Process the OCR results
                     if text and any(data['text']):
