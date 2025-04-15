@@ -61,15 +61,24 @@ class RLAgent:
             win (bool): Whether the bet won
             payout (float): The payout amount (negative for losses)
         """
+        # Record in performance log
         self.performance_log.append({
             'number': number,
             'strategy': strategy,
             'win': win,
-            'payout': payout
+            'payout': payout,
+            'timestamp': datetime.now()  # Add timestamp for time-based analysis
         })
+        
+        # Maintain a reasonable history length
         if len(self.performance_log) > 100:
             self.performance_log.pop(0)
+            
+        # Update alignment record for accuracy calculation
         self.record_alignment(win)
+        
+        # Update the real-time adapter with the new spin
+        self.real_time_adapter.add_spin(number)
 
     def get_accuracy(self) -> float:
         """
@@ -83,6 +92,7 @@ class RLAgent:
     def get_recommendation(self, bankroll, confidence=None):
         """
         Suggest strategy based on accuracy, bankroll, and (optionally) prediction confidence.
+        Incorporates real-time adaptation for improved decision making in time-sensitive contexts.
         
         Args:
             bankroll (float): Current bankroll amount
@@ -91,45 +101,161 @@ class RLAgent:
         Returns:
             str: Recommended strategy name
         """
-        if confidence is not None:
-            if confidence >= 0.7 and bankroll > 150 and self.accuracy > 0.6:
-                return "Martingale"
-            elif confidence <= 0.4 or bankroll < 50:
-                return "Flat"
-            elif self.recent_losing_streak() >= 3:
-                return "Fibonacci"
-            return "Paroli"
+        # Check if we have real-time adaptation data to enhance the recommendation
+        # Calculate recent pattern accuracy from the real-time adapter
+        pattern_accuracy = 0.0
+        recent_spins_count = len(self.real_time_adapter.recent_spins)
+        
+        if recent_spins_count >= 5:
+            # Get pattern accuracy based on pattern memory if available
+            if hasattr(self.real_time_adapter, 'pattern_memory') and self.real_time_adapter.pattern_memory:
+                # Calculate average accuracy of recent patterns
+                pattern_hits = 0
+                pattern_total = 0
+                for pattern, stats in self.real_time_adapter.pattern_memory.items():
+                    if 'hits' in stats and 'attempts' in stats and stats['attempts'] > 0:
+                        pattern_hits += stats['hits']
+                        pattern_total += stats['attempts']
+                
+                if pattern_total > 0:
+                    pattern_accuracy = pattern_hits / pattern_total
+                else:
+                    pattern_accuracy = 0.5  # Default if no patterns evaluated yet
+            
+            # Use the real-time adapter's data to adjust the confidence
+            recent_acc = pattern_accuracy if pattern_accuracy > 0 else 0.5
+            streak = self.recent_losing_streak()
+            
+            # Blend real-time accuracy with overall accuracy (60/40 split)
+            blended_accuracy = 0.6 * recent_acc + 0.4 * self.accuracy
+            
+            # Enhanced decision making with real-time data
+            if confidence is not None:
+                # Adjust confidence based on real-time patterns
+                adjusted_confidence = confidence * (0.7 + (0.3 * blended_accuracy))
+                
+                if adjusted_confidence >= 0.7 and bankroll > 150 and blended_accuracy > 0.55:
+                    return "Martingale"
+                elif (adjusted_confidence <= 0.4 or bankroll < 50) and streak <= 2:
+                    return "Flat"
+                elif streak >= 3:
+                    return "Fibonacci"
+                # If we have a strong recent accuracy but moderate confidence
+                elif blended_accuracy > 0.65 and adjusted_confidence > 0.5:
+                    return "Paroli"  # Positive progression system
+                return "D'Alembert"  # More conservative than Martingale
+            else:
+                # No explicit confidence provided, rely more on blended accuracy
+                if blended_accuracy > 0.65 and bankroll > 150:
+                    return "Martingale"
+                elif blended_accuracy < 0.4 or bankroll < 50:
+                    return "Flat"
+                elif streak >= 3:
+                    return "Fibonacci"
+                # Adjust strategy based on available bankroll
+                return "D'Alembert" if bankroll < 100 else "Paroli"
         else:
-            # fallback if confidence is not provided
-            if self.accuracy > 0.65 and bankroll > 150:
-                return "Martingale"
-            elif self.accuracy < 0.4 or bankroll < 50:
-                return "Flat"
-            elif self.recent_losing_streak() >= 3:
-                return "Fibonacci"
-            return "D'Alembert" if bankroll < 100 else "Paroli"
+            # Fallback to original strategy if real-time data is insufficient
+            if confidence is not None:
+                if confidence >= 0.7 and bankroll > 150 and self.accuracy > 0.6:
+                    return "Martingale"
+                elif confidence <= 0.4 or bankroll < 50:
+                    return "Flat"
+                elif self.recent_losing_streak() >= 3:
+                    return "Fibonacci"
+                return "Paroli"
+            else:
+                # Fallback if confidence is not provided
+                if self.accuracy > 0.65 and bankroll > 150:
+                    return "Martingale"
+                elif self.accuracy < 0.4 or bankroll < 50:
+                    return "Flat"
+                elif self.recent_losing_streak() >= 3:
+                    return "Fibonacci"
+                return "D'Alembert" if bankroll < 100 else "Paroli"
 
-    def get_bet_size_recommendation(self, bankroll):
+    def get_bet_size_recommendation(self, bankroll, confidence=None):
         """
-        Recommend bet size based on bankroll.
+        Recommend bet size based on bankroll and real-time adaptation data.
         
         Args:
             bankroll (float): Current bankroll amount
+            confidence (float, optional): Confidence in the current prediction
             
         Returns:
             float: Recommended bet size
         """
-        # Conservative bet sizing - between 1-5% of bankroll
+        # Calculate base bet size as a percentage of bankroll (conservative approach)
         if bankroll < 50:
-            return 1.0  # Minimum bet to protect bankroll
+            base_size = 1.0  # Minimum bet to protect bankroll
         elif bankroll < 100:
-            return round(bankroll * 0.02, 1)  # 2% of bankroll
+            base_size = round(bankroll * 0.02, 1)  # 2% of bankroll
         elif bankroll < 200:
-            return round(bankroll * 0.03, 1)  # 3% of bankroll
+            base_size = round(bankroll * 0.03, 1)  # 3% of bankroll
         elif bankroll < 500:
-            return round(bankroll * 0.04, 1)  # 4% of bankroll
+            base_size = round(bankroll * 0.04, 1)  # 4% of bankroll
         else:
-            return round(bankroll * 0.05, 1)  # 5% of bankroll
+            base_size = round(bankroll * 0.05, 1)  # 5% of bankroll
+        
+        # Calculate pattern accuracy from the real-time adapter
+        pattern_accuracy = None
+        recent_spins_count = len(self.real_time_adapter.recent_spins)
+        
+        # Only adjust if we have enough recent spins to analyze
+        if recent_spins_count >= 5 and confidence is not None:
+            # Get pattern accuracy based on pattern memory if available
+            if hasattr(self.real_time_adapter, 'pattern_memory') and self.real_time_adapter.pattern_memory:
+                # Calculate average accuracy of recent patterns
+                pattern_hits = 0
+                pattern_total = 0
+                for pattern, stats in self.real_time_adapter.pattern_memory.items():
+                    if 'hits' in stats and 'attempts' in stats and stats['attempts'] > 0:
+                        pattern_hits += stats['hits']
+                        pattern_total += stats['attempts']
+                
+                if pattern_total > 0:
+                    pattern_accuracy = pattern_hits / pattern_total
+            
+            # If no pattern data or insufficient data, return base size
+            if pattern_accuracy is None:
+                return base_size
+                
+            # Adjust bet size based on real-time data and confidence
+            # - Increase size for high confidence predictions
+            # - Decrease size when in a losing streak
+            # - Cap at 7% of bankroll for safety
+            losing_streak = self.recent_losing_streak()
+            
+            # Start with our base sizing
+            adjusted_size = base_size
+            
+            # Blend confidence with pattern accuracy
+            effective_confidence = 0.7 * confidence + 0.3 * pattern_accuracy
+            
+            # Adjust size up if confidence is high
+            if effective_confidence > 0.75:
+                adjusted_size *= 1.2  # 20% increase for high confidence
+            elif effective_confidence > 0.65:
+                adjusted_size *= 1.1  # 10% increase for good confidence
+            
+            # Adjust size down if confidence is low
+            if effective_confidence < 0.4:
+                adjusted_size *= 0.8  # 20% decrease for low confidence
+        
+        # Step 2: Adjust for losing streaks (be more cautious)
+        if losing_streak >= 3:
+            adjusted_size *= 0.7  # Reduce by 30% during bad streaks
+        elif losing_streak == 2:
+            adjusted_size *= 0.85  # Reduce by 15% after two losses
+            
+        # Step 3: Safety caps
+        # Ensure minimum bet
+        adjusted_size = max(1.0, adjusted_size)
+        # Cap at 7% of bankroll for safety
+        max_bet = round(bankroll * 0.07, 1)
+        adjusted_size = min(adjusted_size, max_bet)
+        
+        return round(adjusted_size, 1)
 
     def recent_losing_streak(self):
         """
@@ -263,6 +389,7 @@ class RLAgent:
         """
         Provide specific number and bet recommendations based on statistical analysis.
         Uses caching and shows progress indicators for large datasets.
+        Incorporates real-time adaptation for 8-second decision window.
         
         Args:
             spins_df (pd.DataFrame): DataFrame with spin data
@@ -273,8 +400,23 @@ class RLAgent:
         Returns:
             dict: Detailed recommendations with confidence scores
         """
-        # Use cached version, passing through the fast_mode parameter
-        return self.get_cached_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode)
+        # Start with the cached statistical recommendations
+        statistical_recommendations = self.get_cached_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode)
+        
+        # Get real-time adaptation recommendations
+        if spins_df is not None and len(spins_df) >= 10:
+            # Update real-time adapter with recent spins from the dataframe
+            recent_spins = spins_df.tail(20)['number'].tolist()
+            for num in recent_spins:
+                self.real_time_adapter.add_spin(num)
+                
+            # Integrate real-time adaptation recommendations
+            return self.real_time_adapter.get_adaptation_recommendations(
+                statistical_recommendations, 
+                roulette_type=roulette_type
+            )
+        
+        return statistical_recommendations
         
     def _calculate_bet_recommendations(self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
