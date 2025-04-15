@@ -704,19 +704,41 @@ with tab4:
         with col2:
             st.metric("Agent Accuracy", f"{st.session_state.agent.get_accuracy() * 100:.1f}%")
         with col3:
+            # Keep this simple metric
             st.metric("Recommended Strategy", st.session_state.agent.get_recommendation(st.session_state.bankroll))
         
-        # Agent recommendation section
-        st.subheader("Agent Strategy Recommendation")
+        # Streamlined recommendation section
+        st.subheader("📊 Strategy Recommendation")
         
-        # Get agent recommendation
+        # Get agent recommendation (stored in variables for reuse)
         strategy_name = st.session_state.agent.get_recommendation(st.session_state.bankroll)
         recommended_bet = st.session_state.agent.get_bet_size_recommendation(st.session_state.bankroll)
         
-        # Display the recommendation
-        st.info(f"Based on your current bankroll (${st.session_state.bankroll:.2f}) and historical data, the agent recommends:")
-        st.markdown(f"**Strategy:** {strategy_name}")
-        st.markdown(f"**Bet Size:** ${recommended_bet:.2f}")
+        # Create two columns for the layout
+        rec_col1, rec_col2 = st.columns([2, 3])
+        
+        with rec_col1:
+            # Display the compact recommendation box
+            st.info(f"Based on your current bankroll (${st.session_state.bankroll:.2f}):")
+            st.markdown(f"**Strategy:** {strategy_name}")
+            st.markdown(f"**Bet Size:** ${recommended_bet:.2f}")
+        
+        with rec_col2:
+            # Get bet recommendations for visualization
+            bet_recommendations = st.session_state.agent.get_specific_bet_recommendations(
+                spins_df,
+                current_roulette_type,
+                st.session_state.bankroll,
+                fast_mode=True  # Use fast mode for 8-second decision window
+            )
+            
+            # Personalized Betting Strategy Heatmap
+            heatmap_fig = st.session_state.visualizer.plot_betting_strategy_heatmap(
+                spins_df,
+                current_roulette_type,
+                bet_recommendations
+            )
+            st.plotly_chart(heatmap_fig, use_container_width=True)
         
         # Real-Time Adaptation Metrics Section
         st.subheader("🔄 Real-Time Adaptation Metrics")
