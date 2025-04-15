@@ -634,12 +634,11 @@ with main_tab2:
             if len(spins_df) < 50:
                 st.warning("You need more spins for any meaningful bias detection. Please add at least 50 spins to see preliminary results.")
             else:
-                # Perform the wheel bias analysis in fast mode for 8-second window
+                # Perform the wheel bias analysis 
                 bias_results = st.session_state.wheel_bias_detector.analyze_wheel_bias(
                     spins_df, 
                     current_roulette_type,
-                    min_spins=50,
-                    fast_mode=True  # Enable fast mode for performance optimization
+                    min_spins=50
                 )
                 
                 # Display the results
@@ -1657,9 +1656,10 @@ with main_tab3:
     else:
         st.info("No spin data available for strategy agent. Please add spins in the Spin Tracker tab.")
 
-# Tab 5: Statistics
-with tab5:
-    st.header(f"Statistics - {st.session_state.current_session}")
+# Statistics Section
+# Add Statistics section to the Analysis tab
+with main_tab2:
+    st.subheader("📊 Session Statistics")
     
     # Get data for current session
     spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
