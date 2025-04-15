@@ -44,6 +44,7 @@ def process_grid_history_board(image, expected_columns=10, expected_rows=5):
     Returns:
         list: A list of tuples (number, confidence) for each detected number
     """
+    # Specialized for the exact format in the test image which has red/white numbers on black background
     try:
         # Convert to NumPy array for OpenCV processing
         np_image = np.array(image)
