@@ -104,8 +104,31 @@ with st.sidebar:
     if current_bankroll != st.session_state.bankroll:
         st.session_state.bankroll = current_bankroll
     
-    # Display recommended bet size based on bankroll
+    # Display recommended bet size based on bankroll with explanation
     rec_bet_size = get_bet_size_recommendation(st.session_state.bankroll)
+    
+    with st.expander("💰 Adaptive Bankroll Strategy", expanded=True):
+        st.markdown("""
+        ### How Adaptive Bankroll Strategy Works
+        
+        The system automatically adjusts your recommended bet size based on your bankroll:
+        
+        | Bankroll Size | Bet Percentage | Explanation |
+        |---------------|----------------|-------------|
+        | Under $50     | Fixed $1.00    | Protection for small bankrolls |
+        | $50-$99       | 2% of bankroll | Conservative approach for building up |
+        | $100-$199     | 3% of bankroll | Balanced risk/reward ratio |
+        | $200-$499     | 4% of bankroll | Moderate approach for growth |
+        | $500+         | 5% of bankroll | Standard ratio for larger bankrolls |
+        
+        **Additional Adaptive Factors:**
+        - Bet size increases with higher confidence levels
+        - Reduces during losing streaks for protection
+        - Adjusts based on pattern detection quality
+        
+        _This adaptive strategy helps manage risk while maximizing potential returns._
+        """)
+    
     st.info(f"Recommended bet size: ${rec_bet_size:.2f}")
     
     # Session management
@@ -716,6 +739,16 @@ with tab4:
         st.write("""
         The Advanced Strategy Agent uses reinforcement learning to analyze your spin data 
         and recommend optimal betting strategies based on your bankroll and the patterns detected.
+        
+        **✨ Adaptive Strategy Features:**
+        * Automatically adjusts bet size based on your current bankroll
+        * Adapts strategy based on detected patterns in spin history
+        * Adjusts confidence levels using real-time statistical analysis
+        * Protects your bankroll during losing streaks
+        * Optimizes bet sizing for different confidence levels
+        
+        The system continuously learns from your results and updates its recommendations
+        to maximize your potential returns while managing risk appropriately.
         """)
         
         # Display current bankroll and agent accuracy
