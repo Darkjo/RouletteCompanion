@@ -973,8 +973,7 @@ with main_tab3:
             bet_recommendations = st.session_state.agent.get_specific_bet_recommendations(
                 spins_df,
                 current_roulette_type,
-                st.session_state.bankroll,
-                fast_mode=True  # Use fast mode for 8-second decision window
+                st.session_state.bankroll
             )
             
             # Personalized Betting Strategy Heatmap
@@ -1137,12 +1136,11 @@ with main_tab3:
                     if time.time() - start_time > 7.5:
                         break
             
-            # Pass the fast_mode parameter from session state to the analysis
+            # Get the recommendations from the agent
             specific_recommendations = st.session_state.agent.get_specific_bet_recommendations(
                 spins_df, 
                 current_roulette_type, 
-                st.session_state.bankroll,
-                st.session_state.fast_mode
+                st.session_state.bankroll
             )
             
             # Complete the progress bar
