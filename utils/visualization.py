@@ -871,6 +871,175 @@ class RouletteVisualizer:
             return 'black'
         else:  # green for 0 and 00
             return 'green'
+            
+    def plot_betting_strategy_heatmap(self, spins_df, roulette_type, bet_recommendations):
+        """
+        Create a heatmap visualization of personalized betting strategy recommendations.
+        
+        Args:
+            spins_df (pd.DataFrame): DataFrame with spin data
+            roulette_type (str): Type of roulette - 'European' or 'American'
+            bet_recommendations (dict): Recommendations from RLAgent
+            
+        Returns:
+            plotly.graph_objects.Figure: Plotly figure object
+        """
+        if spins_df is None or spins_df.empty:
+            # Return empty figure
+            fig = go.Figure()
+            fig.update_layout(
+                title="No spin data available for strategy heatmap",
+                height=600
+            )
+            return fig
+            
+        # Create a grid representation of the roulette table
+        if roulette_type == "European":
+            numbers = [0] + list(range(1, 37))
+        else:  # American
+            numbers = [0, "00"] + list(range(1, 37))
+            
+        # Determine the base confidence for each number (default to very low)
+        number_confidence = {str(num): 0.05 for num in numbers}
+        
+        # Populate confidence values from recommendations
+        if bet_recommendations and "single_numbers" in bet_recommendations:
+            for num_data in bet_recommendations["single_numbers"]:
+                number_confidence[str(num_data["number"])] = num_data["confidence"]
+                
+        # Create a more structured visualization of the roulette layout
+        # We'll create a grid representing the standard roulette layout
+        
+        # Define the layout for visualization
+        layout = []
+        
+        # First row with 0 (and 00 for American)
+        if roulette_type == "European":
+            first_row = ["", "0", ""]
+        else:
+            first_row = ["00", "0", ""]
+        layout.append(first_row)
+        
+        # Main grid 3x12
+        for row in range(3):
+            layout_row = []
+            for col in range(12):
+                num = row + 3*col + 1
+                layout_row.append(str(num))
+            layout.append(layout_row)
+            
+        # Prepare data for the heatmap
+        z_values = []
+        annotations = []
+        hover_text = []
+        x_labels = []
+        y_labels = ['Zero', '1st Row', '2nd Row', '3rd Row']
+        
+        # Create the heatmap data
+        for row_idx, row in enumerate(layout):
+            z_row = []
+            hover_row = []
+            
+            for col_idx, num in enumerate(row):
+                # Only add column labels for the first pass
+                if row_idx == 0:
+                    if col_idx == 0 and roulette_type == "American":
+                        x_labels.append("00")
+                    elif col_idx == 1:
+                        x_labels.append("0")
+                    else:
+                        x_labels.append(str(col_idx))
+                        
+                if not num:  # Empty cell
+                    z_row.append(None)
+                    hover_row.append("")
+                else:
+                    confidence = number_confidence.get(num, 0.05)
+                    z_row.append(confidence)
+                    hover_row.append(f"Number: {num}<br>Confidence: {confidence:.2%}")
+                    
+                    # Add number as annotation on the heatmap
+                    if num:
+                        color = "black"
+                        if num != "0" and num != "00" and int(num) > 0:
+                            # Red numbers in roulette
+                            red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+                            if int(num) in red_numbers:
+                                color = "red"
+                                
+                        annotations.append(dict(
+                            x=col_idx,
+                            y=row_idx,
+                            text=num,
+                            showarrow=False,
+                            font=dict(
+                                color=color,
+                                size=14
+                            )
+                        ))
+            
+            z_values.append(z_row)
+            hover_text.append(hover_row)
+        
+        # Create the heatmap
+        fig = go.Figure()
+        
+        # Define heatmap colorscale for confidence
+        colorscale = [
+            [0, 'rgba(240, 240, 240, 0.8)'],      # Very low confidence
+            [0.2, 'rgba(220, 244, 223, 0.8)'],    # Low confidence
+            [0.4, 'rgba(184, 226, 184, 0.8)'],    # Medium confidence
+            [0.6, 'rgba(144, 201, 135, 0.8)'],    # Higher confidence
+            [0.8, 'rgba(104, 170, 99, 0.8)'],     # Strong confidence
+            [1.0, 'rgba(51, 142, 77, 0.8)']       # Very strong confidence
+        ]
+        
+        fig.add_trace(go.Heatmap(
+            z=z_values,
+            x=list(range(len(x_labels))),
+            y=list(range(len(y_labels))),
+            hoverongaps=False,
+            hoverinfo='text',
+            text=hover_text,
+            colorscale=colorscale,
+            showscale=True,
+            zmin=0,
+            zmax=1
+        ))
+        
+        # Add annotations (numbers)
+        fig.update_layout(annotations=annotations)
+        
+        # Update layout
+        fig.update_layout(
+            title="Personalized Betting Strategy Heatmap",
+            xaxis=dict(
+                tickmode='array',
+                tickvals=list(range(len(x_labels))),
+                ticktext=x_labels,
+                title=""
+            ),
+            yaxis=dict(
+                tickmode='array',
+                tickvals=list(range(len(y_labels))),
+                ticktext=y_labels,
+                title=""
+            ),
+            height=500,
+            width=800,
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        
+        # Add a color bar title
+        fig.update_layout(
+            coloraxis_colorbar=dict(
+                title="Confidence",
+                tickvals=[0, 0.25, 0.5, 0.75, 1.0],
+                ticktext=["Very Low", "Low", "Medium", "High", "Very High"]
+            )
+        )
+        
+        return fig
     
     def _create_roulette_wheel(self, last_number, roulette_type):
         """
