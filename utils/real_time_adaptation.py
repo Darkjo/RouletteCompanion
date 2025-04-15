@@ -230,8 +230,8 @@ class RealTimeAdapter:
             dealer_recommendations
         )
         
-        # Instead of nesting recommendations, merge them with our adaptation data
-        result = adapted_recommendations['recommendations'].copy()
+        # Get the recommendations and add the adaptation metadata
+        result = adapted_recommendations['recommendations']
         
         # Add the adaptation metadata
         result['adapted'] = True
@@ -574,14 +574,26 @@ class RealTimeAdapter:
         Returns:
             dict: Combined recommendations
         """
-        # Create adapted recommendations object
+        # Start with a copy of the expected structure from global_recommendations
         adapted_recs = {
             'single_numbers': [],
+            'columns': {"recommendation": None, "confidence": 0},
+            'dozens': {"recommendation": None, "confidence": 0},
+            'red_black': {"recommendation": None, "confidence": 0},
+            'even_odd': {"recommendation": None, "confidence": 0},
+            'high_low': {"recommendation": None, "confidence": 0},
+            'split_bets': [],
+            # Additional fields for real-time adaptation
             'sectors': [],
             'patterns': [],
             'special_bets': [],
             'overall_strategy': ""
         }
+        
+        # Copy existing values from global recommendations to maintain compatibility
+        for key in ['columns', 'dozens', 'red_black', 'even_odd', 'high_low', 'split_bets']:
+            if key in global_recommendations:
+                adapted_recs[key] = global_recommendations[key]
         
         # Calculate overall adaptation confidence
         adaptation_confidence = (
