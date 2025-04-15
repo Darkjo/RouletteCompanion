@@ -227,7 +227,8 @@ class RealTimeAdapter:
             frequency_recommendations,
             streak_recommendations,
             sector_recommendations,
-            dealer_recommendations
+            dealer_recommendations,
+            numbers  # Pass the numbers list to the combine method
         )
         
         # Get the recommendations and add the adaptation metadata
@@ -560,7 +561,7 @@ class RealTimeAdapter:
         return sorted(clusters, key=lambda x: x['confidence'], reverse=True)
     
     def _combine_recommendations(self, global_recommendations, frequency_rec, streak_rec, 
-                               sector_rec, dealer_rec):
+                               sector_rec, dealer_rec, numbers):
         """
         Combine different recommendation sources with appropriate weighting.
         
@@ -570,6 +571,7 @@ class RealTimeAdapter:
             streak_rec (dict): Streak-based recommendations
             sector_rec (dict): Sector bias recommendations
             dealer_rec (dict): Dealer signature recommendations
+            numbers (list): List of recent spin numbers for calculations
             
         Returns:
             dict: Combined recommendations
@@ -649,8 +651,13 @@ class RealTimeAdapter:
         for cluster in dealer_rec.get('clusters', []):
             for num in cluster['numbers']:
                 if num not in ('0', '00'):  # Skip zeros
+                    # Add dealer signature number with all required fields
+                    dealer_count = numbers.count(num)
                     number_recs.append({
                         'number': num,
+                        'count': dealer_count if dealer_count > 0 else 1,
+                        'frequency': f"{round(dealer_count / len(numbers) * 100, 1)}%" if dealer_count > 0 else "0.0%",
+                        'deviation': round(1.1, 2),  # Default deviation for dealer signature numbers
                         'confidence': cluster['confidence'] * 0.7,  # Lower confidence (speculative)
                         'source': 'dealer',
                         'message': f"In potential drop zone (dealer signature)"
