@@ -6,13 +6,18 @@ Performance optimizations added:
 - Caching for expensive calculations
 - Progress indicators for long-running operations
 - Batch processing for large datasets
+- Real-time adaptation for 8-second decision window
 """
 
 import random
 import pandas as pd
+import numpy as np
 import streamlit as st
 from collections import defaultdict
 from time import time
+from datetime import datetime
+
+from utils.real_time_adaptation import RealTimeAdapter
 
 class RLAgent:
     """
@@ -30,6 +35,9 @@ class RLAgent:
         self.alignments = []
         self.performance_log = []  # [(number, strategy, win, payout)]
         self._last_cached_time = time()  # Track when caches were last updated
+        
+        # Initialize the real-time adaptation system
+        self.real_time_adapter = RealTimeAdapter(window_size=20, min_confidence=0.6)
 
     def record_alignment(self, success: bool):
         """
@@ -144,6 +152,9 @@ class RLAgent:
         self.alignments.clear()
         self.performance_log.clear()
         self.accuracy = 0.5
+        
+        # Reset the real-time adapter
+        self.real_time_adapter = RealTimeAdapter(window_size=20, min_confidence=0.6)
 
     @st.cache_data(ttl=60)  # Cache for 60 seconds
     def get_cached_summary(_self):
