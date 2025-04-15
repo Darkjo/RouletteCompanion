@@ -560,8 +560,20 @@ def create_ocr_capture_interface(session_name, roulette_data):
             4. Optimize for tablet use with larger buttons and simplified interface
             """)
             
-            # Upload from camera option (works well on tablets/phones)
-            camera_file = st.camera_input("Take a photo of the roulette number")
+            # Add button to activate camera only when user wants it
+            if "show_camera" not in st.session_state:
+                st.session_state.show_camera = False
+                
+            if st.button("📷 Activate Camera", use_container_width=True):
+                st.session_state.show_camera = True
+                
+            # Only show camera input when the button is clicked
+            if st.session_state.show_camera:
+                # Upload from camera option (works well on tablets/phones)
+                camera_file = st.camera_input("Take a photo of the roulette number")
+            else:
+                camera_file = None
+                st.info("Click 'Activate Camera' button above when you're ready to take a photo")
             
             if camera_file is not None:
                 # Process the uploaded image
