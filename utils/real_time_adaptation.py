@@ -199,11 +199,12 @@ class RealTimeAdapter:
         """
         if len(self.recent_spins) < self.window_size // 2:
             # Not enough data for reliable adaptation
-            return {
-                'adapted': False,
-                'message': f"Need more spins for real-time adaptation (minimum {self.window_size // 2} recent spins).",
-                'recommendations': global_recommendations
-            }
+            # Return the original recommendations with added explanation
+            result = global_recommendations.copy()
+            result['adapted'] = False
+            result['message'] = f"Need more spins for real-time adaptation (minimum {self.window_size // 2} recent spins)."
+            result['confidence_explanation'] = "Using statistical analysis only. Real-time adaptation requires more recent spins."
+            return result
         
         # Extract numbers for analysis
         numbers = [spin['number'] for spin in self.recent_spins]
@@ -229,12 +230,16 @@ class RealTimeAdapter:
             dealer_recommendations
         )
         
-        return {
-            'adapted': True,
-            'message': "Recommendations adapted based on recent spins and detected patterns.",
-            'adaptation_confidence': adapted_recommendations['confidence'],
-            'recommendations': adapted_recommendations['recommendations']
-        }
+        # Instead of nesting recommendations, merge them with our adaptation data
+        result = adapted_recommendations['recommendations'].copy()
+        
+        # Add the adaptation metadata
+        result['adapted'] = True
+        result['message'] = "Recommendations adapted based on recent spins and detected patterns."
+        result['confidence_explanation'] = "Recommendations are enhanced with real-time adaptation from recent spins."
+        result['adaptation_confidence'] = adapted_recommendations['confidence']
+        
+        return result
     
     def _analyze_short_term_frequency(self, numbers, roulette_type):
         """
@@ -588,11 +593,13 @@ class RealTimeAdapter:
         
         # If adaptation confidence is too low, use global recommendations
         if adaptation_confidence < 0.4:
-            return {
-                'confidence': adaptation_confidence,
-                'recommendations': global_recommendations,
-                'message': "Real-time adaptation confidence too low, using base recommendations."
-            }
+            # Return the original recommendations with our message
+            result = global_recommendations.copy()
+            result['adapted'] = False
+            result['adaptation_confidence'] = adaptation_confidence
+            result['message'] = "Real-time adaptation confidence too low, using base recommendations."
+            result['confidence_explanation'] = "Using statistical analysis with minimal adaptation."
+            return result
         
         # 1. Combine single number recommendations
         number_recs = []
