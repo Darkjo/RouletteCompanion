@@ -46,9 +46,13 @@ def process_grid_history_board(image, expected_columns=10, expected_rows=5):
     """
     # Specialized for the exact format in the test image which has red/white numbers on black background
     try:
+        # Increase brightness a bit before contrast to help with dark numbers
+        brightness_enhancer = ImageEnhance.Brightness(image)
+        brightened_image = brightness_enhancer.enhance(1.2)  # Slight brightness increase
+        
         # Simple contrast enhancement - faster
-        enhancer = ImageEnhance.Contrast(image)
-        enhanced_image = enhancer.enhance(1.8)  # Increase contrast
+        contrast_enhancer = ImageEnhance.Contrast(brightened_image)
+        enhanced_image = contrast_enhancer.enhance(1.8)  # Increase contrast
         
         # Convert to NumPy array for OpenCV processing
         np_image = np.array(enhanced_image)
@@ -58,9 +62,11 @@ def process_grid_history_board(image, expected_columns=10, expected_rows=5):
             gray_image = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
         else:
             gray_image = np_image
-            
-        # Apply simple threshold for speed
-        _, binary = cv2.threshold(gray_image, 120, 255, cv2.THRESH_BINARY_INV)
+        
+        # Apply TWO different thresholds for better chance of catching numbers
+        # This helps with both black-on-white and white-on-black numbers
+        _, binary1 = cv2.threshold(gray_image, 120, 255, cv2.THRESH_BINARY)
+        _, binary2 = cv2.threshold(gray_image, 120, 255, cv2.THRESH_BINARY_INV)
             
         # Get image dimensions
         height, width = gray_image.shape
@@ -77,74 +83,84 @@ def process_grid_history_board(image, expected_columns=10, expected_rows=5):
         
         logger.info(f"Processing grid with cell size: {cell_width}x{cell_height}")
         
-        # Results list
+        # Results list with duplicates allowed for now
         results = []
         
         # Generate all potential numbers to check against (improves validation)
         valid_numbers = [str(n) for n in range(0, 37)] + ["00"]
         
-        # Process each cell in the grid - simplified approach
+        # Calculate slight overlap to catch numbers on cell boundaries
+        overlap = 2
+        
+        # Process each cell in the grid - simplified approach with overlapping cells
         for row in range(expected_rows):
             for col in range(expected_columns):
-                # Calculate cell coordinates
-                x1 = col * cell_width
-                y1 = row * cell_height
-                x2 = min(x1 + cell_width, width)
-                y2 = min(y1 + cell_height, height)
+                # Calculate cell coordinates with overlap
+                x1 = max(0, col * cell_width - overlap)
+                y1 = max(0, row * cell_height - overlap)
+                x2 = min(width, (col + 1) * cell_width + overlap)
+                y2 = min(height, (row + 1) * cell_height + overlap)
                 
                 # Skip cells that would be too small
                 if x2 - x1 < 5 or y2 - y1 < 5:
                     continue
                 
-                # Extract the cell
-                cell = binary[y1:y2, x1:x2]
+                # Extract the cells from both binary versions
+                cell1 = binary1[y1:y2, x1:x2]
+                cell2 = binary2[y1:y2, x1:x2]
                 
                 # Skip empty cells
-                if cell.size == 0:
+                if cell1.size == 0:
                     continue
                 
-                # Skip cells with very little variation (likely empty)
-                if np.std(cell) < 10:
-                    continue
-                
-                # Convert to PIL for OCR
-                cell_pil = Image.fromarray(cell)
-                
-                # Perform fast OCR using a single config
-                try:
-                    text = pytesseract.image_to_string(
-                        cell_pil, 
-                        config="--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789"
-                    ).strip()
+                # Try both thresholded versions
+                for cell, version in [(cell1, 'normal'), (cell2, 'inverted')]:
+                    # Skip cells with very little variation (likely empty)
+                    if np.std(cell) < 8:  # Lowered threshold to catch more cells
+                        continue
                     
-                    if text:
-                        # Extract digits
-                        digits = ''.join(c for c in text if c.isdigit())
-                        
-                        # Handle special case for "00"
-                        if "00" in text:
-                            number = "00"
-                        elif digits:
-                            number = digits
+                    # Convert to PIL for OCR
+                    cell_pil = Image.fromarray(cell)
+                    
+                    # Try with two different OCR configs for better coverage
+                    configs = [
+                        "--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789",  # Single digit mode
+                        "--oem 1 --psm 7 -c tessedit_char_whitelist=0123456789"    # Single line mode
+                    ]
+                    
+                    for config in configs:
+                        try:
+                            text = pytesseract.image_to_string(cell_pil, config=config).strip()
                             
-                            # Validate multi-digit numbers
-                            if len(number) > 2:
-                                if number[:2] in valid_numbers:
-                                    number = number[:2]
-                                elif number[0] in valid_numbers:
-                                    number = number[0]
-                            
-                        else:
+                            if text:
+                                # Extract digits
+                                digits = ''.join(c for c in text if c.isdigit())
+                                
+                                # Handle special case for "00"
+                                if "00" in text:
+                                    number = "00"
+                                elif digits:
+                                    number = digits
+                                    
+                                    # Validate multi-digit numbers
+                                    if len(number) > 2:
+                                        if number[:2] in valid_numbers:
+                                            number = number[:2]
+                                        elif number[0] in valid_numbers:
+                                            number = number[0]
+                                else:
+                                    continue
+                                    
+                                # Quick validation check
+                                if number in valid_numbers:
+                                    confidence = 0.8
+                                    results.append((number, confidence))
+                                    # Once we find a valid number in this cell, move to the next cell
+                                    break
+                                    
+                        except Exception as e:
+                            logger.debug(f"Error processing cell at ({row}, {col}) with config {config}: {e}")
                             continue
-                            
-                        # Quick validation check
-                        if number in valid_numbers:
-                            confidence = 0.8
-                            results.append((number, confidence))
-                            
-                except Exception as e:
-                    logger.debug(f"Error processing cell at ({row}, {col}): {e}")
-                    continue
         
         # Remove duplicates and return
         unique_results = []

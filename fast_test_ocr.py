@@ -28,8 +28,42 @@ def main():
         with st.spinner("Processing image with fast OCR..."):
             start_time = time.time()
             
-            # Try just one fast configuration
-            results = process_grid_history_board(image, expected_columns=10, expected_rows=5)
+            # Try a few optimized layouts
+            grid_configs = [
+                (10, 5),   # Default layout
+                (5, 10),   # Rotated layout
+                (12, 4)    # Wider layout
+            ]
+            
+            # Try all optimized grid configurations and keep the one with most numbers
+            all_results = []
+            best_config = None
+            most_numbers = 0
+            
+            progress_bar = st.progress(0)
+            for i, (cols, rows) in enumerate(grid_configs):
+                # Update progress bar
+                progress_bar.progress((i + 1) / len(grid_configs))
+                
+                # Process with this grid configuration
+                config_results = process_grid_history_board(image, expected_columns=cols, expected_rows=rows)
+                
+                # If this found more numbers, update the best config
+                if len(config_results) > most_numbers:
+                    most_numbers = len(config_results)
+                    best_config = (cols, rows)
+                    all_results = config_results
+            
+            # Clear progress bar
+            progress_bar.empty()
+            
+            # Now use the best configuration results
+            if best_config:
+                st.info(f"Best grid: {best_config[0]}x{best_config[1]} (found {most_numbers} numbers)")
+                results = all_results
+            else:
+                # Default configuration
+                results = process_grid_history_board(image, expected_columns=10, expected_rows=5)
             
             processing_time = time.time() - start_time
         
