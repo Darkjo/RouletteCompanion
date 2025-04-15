@@ -17,7 +17,7 @@ from utils.agent import RLAgent
 from utils.performance_tracker import StrategyPerformanceTracker
 from utils.strategies import StrategyEngine
 from utils.strategy_selector import choose_strategy, get_bet_size_recommendation, get_strategy_description
-from utils.wheel_input import create_roulette_wheel_input, create_file_importer
+from utils.file_import import create_file_importer
 from utils.quick_input import add_floating_quick_input
 from utils.live_casino_input import create_live_casino_panel
 from utils.wheel_bias import WheelBiasDetector
@@ -189,46 +189,9 @@ with tab1:
     # Input section for new spins with tabs for different input methods
     st.subheader("Record New Spin")
     
-    data_input_tabs = st.tabs(["Visual Wheel Input", "Manual Entry", "Live Casino Input", "Import from File", "Web Scraper"])
+    data_input_tabs = st.tabs(["Manual Entry", "Live Casino Input", "Import from File", "Web Scraper"])
     
     with data_input_tabs[0]:
-        # Visual wheel input
-        st.write("Use the visual roulette wheel to select a number:")
-        selected_number = create_roulette_wheel_input(current_roulette_type)
-        
-        if selected_number:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Use current time by default
-                use_current_time = st.checkbox("Use current time", value=True)
-            
-            with col2:
-                # Add button to confirm the selection
-                add_selected = st.button("Add Selected Number")
-            
-            if add_selected:
-                # Timestamp handling
-                if use_current_time:
-                    spin_timestamp = datetime.now()
-                else:
-                    # Add timestamp selection if not using current time
-                    st.write("Select date and time:")
-                    timestamp = st.date_input("Spin Date:", value=datetime.now().date())
-                    time_input = st.time_input("Spin Time:", value=datetime.now().time())
-                    spin_timestamp = datetime.combine(timestamp, time_input)
-                
-                # Add spin to current session
-                st.session_state.roulette_data.add_spin(
-                    session_name=st.session_state.current_session,
-                    number=selected_number,
-                    timestamp=spin_timestamp
-                )
-                
-                st.success(f"Added spin result: {selected_number}")
-                st.rerun()  # Refresh the page to show updated data
-    
-    with data_input_tabs[1]:
         # Traditional manual input
         col1, col2 = st.columns(2)
         
@@ -263,11 +226,11 @@ with tab1:
             st.success(f"Added spin result: {display_number}")
             st.rerun()  # Refresh the page to show updated data
     
-    with data_input_tabs[2]:
+    with data_input_tabs[1]:
         # Live Casino Input
         create_live_casino_panel(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
     
-    with data_input_tabs[3]:
+    with data_input_tabs[2]:
         # Import from file
         imported_data = create_file_importer()
         
@@ -287,7 +250,7 @@ with tab1:
                 st.success(f"Successfully imported {len(imported_data)} spins!")
                 st.rerun()  # Refresh the page to show updated data
     
-    with data_input_tabs[4]:
+    with data_input_tabs[3]:
         # Web scraper for roulette data
         st.write("""
         Use the web scraper to import roulette spin data from websites.
