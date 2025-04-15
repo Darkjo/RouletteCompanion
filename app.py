@@ -796,8 +796,6 @@ with tab4:
     
     # Get the latest data for current session (force refresh)
     spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
-    # Add this line to debug the issue with data not updating
-    st.session_state["last_data_refresh"] = datetime.datetime.now().strftime("%H:%M:%S.%f")
     current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
     
     if spins_df is not None and not spins_df.empty:
