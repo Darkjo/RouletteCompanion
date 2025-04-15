@@ -1,26 +1,31 @@
 """
-Specialized OCR module highly optimized for the specific format of the 
-roulette history board with red and white numbers on black background.
-This module is much faster than the general-purpose OCR.
+Ultra-optimized OCR module for the specific format of roulette history boards
+with red and white numbers on black background. This version uses minimal
+processing for maximum speed.
 """
 
 import cv2
 import numpy as np
 import pytesseract
-from PIL import Image, ImageEnhance
+from PIL import Image
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Cache of valid roulette numbers for faster validation
+VALID_NUMBERS = set([str(i) for i in range(37)] + ["00"])
+
+# Tesseract configuration - using the fastest engine and mode
+TESSERACT_CONFIG = "--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789"
+
 def process_roulette_board(image, rows=6, cols=8):
     """
     Process a roulette history board with a very specific layout
-    of red and white numbers on a black background, arranged in 
-    an 8x6 grid (8 columns, 6 rows).
+    of red and white numbers on a black background.
     
-    Extremely optimized for speed and accuracy for this exact format.
+    Ultra-optimized for speed.
     
     Args:
         image (PIL.Image): Image of the history board
@@ -31,112 +36,84 @@ def process_roulette_board(image, rows=6, cols=8):
         list: Detected numbers as strings
     """
     try:
-        # Convert to NumPy array
+        # Convert to NumPy array once
         np_image = np.array(image)
         
-        # Check if image is colored
+        # Check if image is colored - use optimized path for each
         if len(np_image.shape) == 3:
-            # Extract color information - this is key for this specific board
+            # Fast color-based preprocessing
             hsv = cv2.cvtColor(np_image, cv2.COLOR_RGB2HSV)
             
-            # Create mask for red numbers (red appears in two HSV ranges)
-            lower_red1 = np.array([0, 100, 100])
-            upper_red1 = np.array([10, 255, 255])
-            lower_red2 = np.array([160, 100, 100])
-            upper_red2 = np.array([180, 255, 255])
+            # Single-pass mask creation for both red and white numbers
+            # Expanded ranges to ensure we catch all numbers
+            mask = cv2.inRange(hsv, np.array([0, 0, 150]), np.array([180, 255, 255]))
             
-            red_mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-            red_mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-            red_mask = cv2.bitwise_or(red_mask1, red_mask2)
-            
-            # Create mask for white numbers
-            lower_white = np.array([0, 0, 150])
-            upper_white = np.array([180, 30, 255])
-            white_mask = cv2.inRange(hsv, lower_white, upper_white)
-            
-            # Combine masks to extract all numbers
-            combined_mask = cv2.bitwise_or(red_mask, white_mask)
-            
-            # Apply mask to extract only the number pixels
-            numbers_only = cv2.bitwise_and(np_image, np_image, mask=combined_mask)
-            
-            # Convert to grayscale
-            gray = cv2.cvtColor(numbers_only, cv2.COLOR_BGR2GRAY)
+            # Apply threshold directly to mask instead of doing bitwise operations
+            gray = mask
         else:
+            # For grayscale images, just use directly
             gray = np_image
             
-        # Get image dimensions and calculate cell sizes
+        # Calculate grid dimensions once
         height, width = gray.shape
         cell_height = height // rows
         cell_width = width // cols
         
-        # Prepare results list
+        # Preallocate results list for slight performance gain
         results = []
         
-        # List of valid roulette numbers for validation
-        valid_numbers = [str(i) for i in range(37)] + ["00"]
-        
-        # Process each cell in the grid
+        # Process grid in one pass
         for row in range(rows):
             for col in range(cols):
-                # Calculate cell coordinates
+                # Extract cell with minimal operations
                 y1 = row * cell_height
-                x1 = col * cell_width
                 y2 = y1 + cell_height
+                x1 = col * cell_width
                 x2 = x1 + cell_width
                 
-                # Extract cell
                 cell = gray[y1:y2, x1:x2]
                 
-                # Skip cells with low content
+                # Skip empty cells quickly
                 if np.mean(cell) < 5:
                     continue
                 
-                # Apply threshold to make numbers stand out
-                _, thresh = cv2.threshold(cell, 50, 255, cv2.THRESH_BINARY)
+                # Apply binary threshold - simple and fast
+                _, cell = cv2.threshold(cell, 45, 255, cv2.THRESH_BINARY)
                 
-                # Convert to PIL for OCR
-                cell_pil = Image.fromarray(thresh)
+                # Directly use pytesseract without converting to PIL
+                # This was a slowdown in testing
+                text = pytesseract.image_to_string(
+                    cell,
+                    config=TESSERACT_CONFIG
+                ).strip()
                 
-                # Try just one fast recognition mode
-                try:
-                    text = pytesseract.image_to_string(
-                        cell_pil,
-                        config="--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789"
-                    ).strip()
-                    
-                    # If we got text, clean it up
-                    if text:
-                        # Extract only digits
-                        digits = ''.join(filter(str.isdigit, text))
+                # Fast text processing
+                if text:
+                    # Handle common cases quickly
+                    if text == "00":
+                        results.append("00")
+                        continue
                         
-                        # Handle special case for "00"
-                        if "00" in text:
-                            number = "00"
-                        elif digits:
-                            number = digits
-                            
-                            # Validate multi-digit numbers
-                            if len(digits) > 2:
-                                if digits[:2] in valid_numbers:
-                                    number = digits[:2]
-                                elif digits[0] in valid_numbers:
-                                    number = digits[0]
-                            
-                            # Validate the number
-                            if number in valid_numbers:
-                                results.append(number)
-                                
-                except Exception as e:
-                    logger.debug(f"Error processing cell at ({row}, {col}): {e}")
-                    continue
+                    # Filter to just digits
+                    digits = ''.join(c for c in text if c.isdigit())
+                    
+                    if not digits:
+                        continue
+                        
+                    # Fast number validation
+                    if digits in VALID_NUMBERS:
+                        results.append(digits)
+                    elif len(digits) > 1:
+                        # Handle common misreads
+                        if digits[:2] in VALID_NUMBERS:
+                            results.append(digits[:2])
+                        elif digits[0] in VALID_NUMBERS:
+                            results.append(digits[0])
                     
         return results
         
     except Exception as e:
         logger.error(f"Error processing roulette board: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
         return []
 
 def process_image(image_path):
