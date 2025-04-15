@@ -971,7 +971,7 @@ class RouletteVisualizer:
             hovertext=hover_texts
         ))
         
-        # Add a legend explaining the confidence levels
+        # Add a legend explaining the confidence levels with clearer meanings
         fig.add_trace(go.Scatter(
             x=[None],
             y=[None],
@@ -980,7 +980,7 @@ class RouletteVisualizer:
                 size=25,
                 color='rgba(200, 200, 200, 0.5)'
             ),
-            name='Low Confidence'
+            name='Low Confidence (<40%): Weak pattern'
         ))
         
         fig.add_trace(go.Scatter(
@@ -991,7 +991,7 @@ class RouletteVisualizer:
                 size=45,
                 color='rgba(200, 200, 200, 0.5)'
             ),
-            name='Medium Confidence'
+            name='Medium Confidence (40-75%): Moderate pattern'
         ))
         
         fig.add_trace(go.Scatter(
@@ -1002,7 +1002,7 @@ class RouletteVisualizer:
                 size=65,
                 color='rgba(200, 200, 200, 0.5)'
             ),
-            name='High Confidence'
+            name='High Confidence (>75%): Strong pattern'
         ))
         
         # Update layout to make it circular
@@ -1035,13 +1035,22 @@ class RouletteVisualizer:
             margin=dict(t=50, b=50, l=50, r=50)
         )
         
-        # Add descriptive annotation
+        # Add improved descriptive annotations for new players
         fig.add_annotation(
             x=0,
             y=-1.3,
             text="Larger circles = Higher confidence numbers",
             showarrow=False,
             font=dict(size=14)
+        )
+        
+        # Add a note explaining what confidence means
+        fig.add_annotation(
+            x=0,
+            y=-1.4,
+            text="Higher confidence means stronger statistical patterns detected",
+            showarrow=False,
+            font=dict(size=12)
         )
         
         return fig
