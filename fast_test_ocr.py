@@ -28,11 +28,11 @@ def main():
         with st.spinner("Processing image with fast OCR..."):
             start_time = time.time()
             
-            # Try a few optimized layouts
+            # Try a few optimized layouts - including the 6x8 layout of this specific board
             grid_configs = [
-                (10, 5),   # Default layout
-                (5, 10),   # Rotated layout
-                (12, 4)    # Wider layout
+                (8, 6),   # Custom layout for this board (8 columns, 6 rows)
+                (6, 8),   # Alternative layout (6 columns, 8 rows)
+                (10, 5)   # Default layout
             ]
             
             # Try all optimized grid configurations and keep the one with most numbers
