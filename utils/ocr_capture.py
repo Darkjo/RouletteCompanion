@@ -13,6 +13,7 @@ import os
 import logging
 import threading
 import io
+import re
 import pandas as pd
 
 # Configure logging
@@ -208,6 +209,7 @@ def validate_roulette_number(number):
 def batch_process_history_board(image):
     """
     Process an image of a roulette history board to extract multiple numbers.
+    Enhanced to recognize more numbers using multiple OCR approaches.
     
     Args:
         image (PIL.Image): The image of the history board
@@ -219,7 +221,15 @@ def batch_process_history_board(image):
         # Make a copy of the image to avoid modifying the original
         img_copy = image.copy()
         
-        # Convert to high contrast grayscale for better OCR
+        # Get image dimensions
+        width, height = img_copy.size
+        
+        # Try multiple preprocessing approaches to maximize number detection
+        results = []
+        
+        # APPROACH 1: Traditional contour-based detection with enhanced preprocessing
+        
+        # Convert to high contrast grayscale
         gray_image = img_copy.convert('L')
         enhancer = ImageEnhance.Contrast(gray_image)
         contrast_image = enhancer.enhance(2.5)  # Higher contrast for history boards
@@ -227,122 +237,195 @@ def batch_process_history_board(image):
         # Convert to OpenCV format
         cv_image = np.array(contrast_image)
         
-        # Use adaptive thresholding for varying light conditions
-        binary = cv2.adaptiveThreshold(
+        # Apply different thresholding techniques
+        # 1. Adaptive thresholding
+        binary_adaptive = cv2.adaptiveThreshold(
             cv_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
             cv2.THRESH_BINARY_INV, 11, 2
         )
         
-        # Try to find separate regions that might contain numbers
-        # This works better for digital boards with clear separation
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # 2. Otsu's thresholding
+        _, binary_otsu = cv2.threshold(cv_image, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
         
-        # Filter contours by size to find potential number regions
-        min_area = 100  # Minimum area to consider
-        max_area = 5000  # Maximum area to consider
-        number_regions = []
+        # Process both thresholded images
+        binary_images = [binary_adaptive, binary_otsu]
         
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if min_area < area < max_area:
-                x, y, w, h = cv2.boundingRect(contour)
-                # Filter by aspect ratio to find square-ish areas (typical for roulette numbers)
-                aspect_ratio = float(w) / h
-                if 0.5 < aspect_ratio < 2.0:  # Reasonable aspect ratio for number boxes
-                    number_regions.append((x, y, w, h))
-        
-        # Sort regions by position (left-to-right, top-to-bottom)
-        # This helps maintain the order of numbers as they appear on the board
-        number_regions.sort(key=lambda r: (r[1] // 50, r[0]))  # Sort by rows first, then columns
-        
-        # Extract and process each region
-        results = []
-        processed_regions = []
-        
-        # Process each potential number region
-        for region in number_regions:
-            x, y, w, h = region
+        for binary in binary_images:
+            # Find contours in the binary image
+            contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            # Check if this region overlaps with already processed regions
-            overlaps = False
-            for px, py, pw, ph in processed_regions:
-                if (x < px + pw and x + w > px and y < py + ph and y + h > py):
-                    # Regions overlap, skip this one
-                    overlaps = True
-                    break
+            # Filter contours by size and shape
+            min_area = 80  # Reduced minimum area to catch smaller numbers
+            max_area = 8000  # Increased maximum area to catch larger displays
+            number_regions = []
             
-            if overlaps:
-                continue
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if min_area < area < max_area:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    # Allow wider range of aspect ratios
+                    aspect_ratio = float(w) / h
+                    if 0.3 < aspect_ratio < 3.0:  # More permissive aspect ratio
+                        number_regions.append((x, y, w, h))
+            
+            # Sort regions by position (left-to-right, top-to-bottom)
+            number_regions.sort(key=lambda r: (r[1] // 30, r[0]))  # Reduced grid size to 30px
+            
+            # Extract and process each region
+            processed_regions = []
+            
+            # Process each potential number region
+            for region in number_regions:
+                x, y, w, h = region
                 
-            # Extract the region
-            roi = binary[y:y+h, x:x+w]
-            
-            # Add padding around the ROI for better OCR
-            padded_roi = cv2.copyMakeBorder(roi, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=0)
-            
-            # Perform OCR with digits-only configuration
-            text = pytesseract.image_to_string(
-                padded_roi, 
-                config="--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789"
-            ).strip()
-            
-            # Get confidence
-            data = pytesseract.image_to_data(
-                padded_roi, 
-                config="--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789", 
-                output_type=pytesseract.Output.DICT
-            )
-            
-            # Process the OCR results
-            if text and any(data['text']):
-                # Extract the number
-                number = ''.join(c for c in text if c.isdigit())
+                # Check if this region overlaps with already processed regions
+                overlaps = False
+                for px, py, pw, ph in processed_regions:
+                    # Check for significant overlap (more than 60% overlap)
+                    overlap_area = max(0, min(x+w, px+pw) - max(x, px)) * max(0, min(y+h, py+ph) - max(y, py))
+                    min_area = min(w*h, pw*ph)
+                    if overlap_area > 0.6 * min_area:  # Only skip if significant overlap
+                        overlaps = True
+                        break
                 
-                # Handle possible misread of "00"
-                # Check if the region is mostly green (typical color for 0/00)
-                if number == "0" or number == "00" or (number and int(number) > 36):
-                    # The original color might help determine if it's 0 or 00
-                    region_color = np.mean(np.array(img_copy.crop((x, y, x+w, y+h))), axis=(0, 1))
-                    # If it's predominantly green, it's likely 0 or 00
-                    if region_color[1] > max(region_color[0], region_color[2]):
-                        # Check the width/height ratio - 00 tends to be wider than 0
-                        if w > 1.5 * h:
-                            number = "00"
-                        else:
-                            number = "0"
-                
-                # Validate the number
-                if validate_roulette_number(number):
-                    # Get confidence
-                    confidences = [float(conf) for conf in data['conf'] if conf != '-1']
-                    max_conf = max(confidences) / 100.0 if confidences else 0.5  # Default to 0.5 if no confidence values
+                if overlaps:
+                    continue
                     
-                    results.append((number, max_conf))
+                # Extract the region with margin
+                margin = int(max(w, h) * 0.2)  # Add 20% margin
+                x1 = max(0, x - margin)
+                y1 = max(0, y - margin)
+                x2 = min(binary.shape[1], x + w + margin)
+                y2 = min(binary.shape[0], y + h + margin)
+                roi = binary[y1:y2, x1:x2]
+                
+                if roi.size == 0:  # Skip empty regions
+                    continue
+                
+                # Try multiple OCR configurations for better results
+                ocr_configs = [
+                    "--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789",  # Single digit
+                    "--oem 1 --psm 7 -c tessedit_char_whitelist=0123456789",   # Single line
+                    "--oem 1 --psm 8 -c tessedit_char_whitelist=0123456789"    # Single word
+                ]
+                
+                best_number = None
+                best_confidence = 0
+                
+                for config in ocr_configs:
+                    # Perform OCR with current configuration
+                    text = pytesseract.image_to_string(roi, config=config).strip()
+                    
+                    # Get confidence
+                    data = pytesseract.image_to_data(
+                        roi, config=config, output_type=pytesseract.Output.DICT
+                    )
+                    
+                    # Process the OCR results
+                    if text and any(data['text']):
+                        # Extract the number
+                        number = ''.join(c for c in text if c.isdigit())
+                        
+                        # Check if it's potentially a valid roulette number
+                        if number and (number == "0" or number == "00" or 
+                                      (number.isdigit() and 0 <= int(number) <= 36)):
+                            
+                            # Handle 00 cases - check if it's an American roulette number
+                            if len(number) > 2 and number.startswith("00"):
+                                # Likely a double zero misread as more digits
+                                number = "00"
+                            elif len(number) > 1 and number != "00":
+                                # For numbers with multiple digits, ensure they're valid roulette numbers
+                                if int(number) > 36:
+                                    # If number is too large, try to take just the first or last digit
+                                    if int(number[0]) <= 36:
+                                        number = number[0]
+                                    elif int(number[-1]) <= 36:
+                                        number = number[-1]
+                            
+                            # Get confidence score
+                            confidences = [float(conf) for conf in data['conf'] if conf != '-1']
+                            conf_value = max(confidences) / 100.0 if confidences else 0.5
+                            
+                            # Check if this is better than our previous best for this region
+                            if conf_value > best_confidence and validate_roulette_number(number):
+                                best_number = number
+                                best_confidence = conf_value
+                
+                # If we found a valid number, add it to results
+                if best_number:
+                    results.append((best_number, best_confidence))
                     processed_regions.append(region)
         
-        # If we didn't find any valid regions, try a different approach
-        if not results:
-            # Try a grid-based approach for more traditional boards
-            # Divide the image into a grid and process each cell
-            width, height = img_copy.size
-            grid_size = min(width, height) // 8  # Approximate size for a cell
-            
+        # APPROACH 2: Grid-based search for more structured layouts
+        # This is especially effective for digital displays and betting tables
+        
+        # Try different grid sizes for better coverage
+        grid_sizes = [width//10, width//15, width//20]
+        
+        for grid_size in grid_sizes:
+            if grid_size < 15:  # Skip if grid cells would be too small
+                continue
+                
+            # Process in grid pattern
             for y in range(0, height, grid_size):
                 for x in range(0, width, grid_size):
-                    # Extract a cell
-                    cell = contrast_image.crop((x, y, min(x + grid_size, width), min(y + grid_size, height)))
+                    # Extract a cell with enough context
+                    x1 = max(0, x - grid_size//4)
+                    y1 = max(0, y - grid_size//4)
+                    x2 = min(width, x + grid_size + grid_size//4)
+                    y2 = min(height, y + grid_size + grid_size//4)
                     
-                    # Process with OCR
+                    cell = img_copy.crop((x1, y1, x2, y2))
+                    
+                    # Process with enhanced OCR
+                    # First try direct recognition
                     number, confidence = recognize_number(cell)
                     
-                    # If we found a valid number, add it to results
-                    if number and validate_roulette_number(number) and confidence > 0.4:
-                        results.append((number, confidence))
+                    # If we found a valid number with good confidence, add it to results
+                    if number and validate_roulette_number(number) and confidence > 0.5:
+                        # Check if this number is already in results to avoid duplicates
+                        if not any(number == n for n, _ in results):
+                            results.append((number, confidence))
+                    else:
+                        # Try with preprocessing
+                        cell_gray = cell.convert('L')
+                        cell_contrast = ImageEnhance.Contrast(cell_gray).enhance(2.0)
+                        number, confidence = recognize_number(cell_contrast)
+                        
+                        if number and validate_roulette_number(number) and confidence > 0.45:
+                            # Check if this number is already in results
+                            if not any(number == n for n, _ in results):
+                                results.append((number, confidence))
         
-        return results
+        # APPROACH 3: Full image OCR with segmentation for specific layouts
+        # Try OCR on the full image with page segmentation to detect tabular data
+        for psm in [6, 11, 12]:  # Try different page segmentation modes
+            full_text = pytesseract.image_to_string(
+                contrast_image, 
+                config=f"--oem 1 --psm {psm} -c tessedit_char_whitelist=0123456789"
+            )
+            
+            # Extract digits and validate
+            for match in re.finditer(r'(\d{1,2})', full_text):
+                number = match.group(1)
+                if validate_roulette_number(number):
+                    # Add to results if not already present
+                    if not any(number == n for n, _ in results):
+                        results.append((number, 0.6))  # Default confidence
+        
+        # Remove duplicates and sort for consistent output
+        results = list(set(results))
+        results.sort(key=lambda x: -x[1])  # Sort by confidence, highest first
+        
+        # Limit to top 50 results with highest confidence
+        return results[:50]
     
     except Exception as e:
         logger.error(f"Error processing history board: {e}")
+        # Log the full stack trace for debugging
+        import traceback
+        logger.error(traceback.format_exc())
         return []
 
 def start_capture(session_name, roulette_data, interval=2.0):
