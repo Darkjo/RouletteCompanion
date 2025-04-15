@@ -12,7 +12,7 @@ import time
 from utils.roulette_data_optimized import RouletteData  # Using optimized version
 from utils.analysis import RouletteAnalyzer
 from utils.betting_strategies import BettingStrategist
-from utils.visualization import RouletteVisualizer
+from utils.visualization_optimized import RouletteVisualizer  # Using optimized version
 from utils.agent import RLAgent
 from utils.performance_tracker import StrategyPerformanceTracker
 from utils.strategies import StrategyEngine
