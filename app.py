@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import time
@@ -223,50 +223,90 @@ with st.sidebar:
         else:
             st.error("No saved data found or error loading data.")
 
-# Main content area with tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Spin Tracker", "Analysis", "Betting Suggestions", "Advanced Strategy Agent", "Statistics"])
-
-# Add floating quick input panel at the bottom of the screen
+# Simplified UI with clearer navigation
+st.title("🎰 Roulette Strategy Assistant")
 current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
-add_floating_quick_input(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
 
-# Tab 1: Spin Tracker
-with tab1:
-    st.header(f"Spin Tracker - {st.session_state.current_session}")
+# Create a more intuitive three-column layout for the main dashboard
+dashboard_col1, dashboard_col2, dashboard_col3 = st.columns([1, 2, 1])
+
+with dashboard_col1:
+    st.subheader("📊 Session Info")
+    st.info(f"**Current Session:** {st.session_state.current_session}")
+    st.info(f"**Roulette Type:** {current_roulette_type}")
+    st.info(f"**Bankroll:** ${st.session_state.bankroll:.2f}")
     
-    # Get current roulette type for this session
-    current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+    # Add quick input panel
+    st.subheader("⚡ Quick Add")
+    add_floating_quick_input(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
+
+with dashboard_col3:
+    st.subheader("💡 Recommendations")
     
-    # Display current roulette type
-    st.info(f"Current Roulette Type: {current_roulette_type}")
+    # Get recommended bet size
+    rec_bet_size = get_bet_size_recommendation(st.session_state.bankroll)
+    st.metric("Recommended Bet", f"${rec_bet_size:.2f}")
     
-    # Input section for new spins with tabs for different input methods
-    st.subheader("Record New Spin")
+    # Get recommended strategy based on current analysis
+    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    if spins_df is not None and not spins_df.empty and len(spins_df) > 10:
+        rec_strategy = st.session_state.agent.get_recommendation(st.session_state.bankroll)
+        st.success(f"Suggested Strategy: **{rec_strategy}**")
+        
+        with st.expander("Strategy Details"):
+            st.write(get_strategy_description(rec_strategy))
+    else:
+        st.warning("Need more spins for strategy recommendations")
+
+# Main navigation - simplify to 3 clear sections
+main_tab1, main_tab2, main_tab3 = st.tabs(["💾 Data Management", "📈 Analysis", "🎲 Betting Strategies"])
+
+# Tab 1: Simplified Data Management
+with main_tab1:
+    st.header("Data Management")
     
-    data_input_tabs = st.tabs(["Manual Entry", "Live Casino Input", "Import from File", "Web Scraper"])
+    # Simplified input options
+    input_method = st.radio(
+        "Choose Input Method:",
+        ["Manual Entry", "OCR/Camera", "Import From File", "Live Casino"],
+        horizontal=True,
+        help="Select how you want to enter spin data"
+    )
+
+    # Create a clean divider
+    st.divider()
     
-    with data_input_tabs[0]:
-        # Traditional manual input
+    # Display different input methods based on selection
+    if input_method == "Manual Entry":
+        # Traditional manual input with bigger, clearer UI
+        st.subheader("📝 Manual Entry")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            # Input for spin number
+            # Input for spin number with clearer labels
             if current_roulette_type == "European":
-                spin_number = st.number_input("Spin Result (0-36):", min_value=0, max_value=36, step=1)
+                spin_number = st.number_input("Spin Result (0-36):", 
+                                           min_value=0, max_value=36, step=1,
+                                           help="Enter the number that came up on the wheel")
             else:  # American
-                spin_number = st.number_input("Spin Result (00, 0-36):", min_value=-1, max_value=36, step=1, 
-                                            help="Enter -1 for '00' (American roulette)")
+                spin_number = st.number_input("Spin Result (00, 0-36):", 
+                                           min_value=-1, max_value=36, step=1,
+                                           help="Enter -1 for '00' (American roulette)")
         
         with col2:
-            # Add timestamp
-            timestamp = st.date_input("Spin Date:", value=datetime.now().date())
-            time_input = st.time_input("Spin Time:", value=datetime.now().time())
+            # Simplified timestamp - just use current time by default
+            use_custom_time = st.checkbox("Use custom time?", value=False)
             
-        # Combine date and time
-        spin_timestamp = datetime.combine(timestamp, time_input)
+            if use_custom_time:
+                timestamp = st.date_input("Date:", value=datetime.now().date())
+                time_input = st.time_input("Time:", value=datetime.now().time())
+                spin_timestamp = datetime.combine(timestamp, time_input)
+            else:
+                spin_timestamp = datetime.now()
         
         # Button to add the spin
-        if st.button("Add Spin Result", key="manual_add_btn"):
+        if st.button("➕ Add Spin Result", key="manual_add_btn", use_container_width=True):
             # Convert -1 to '00' for American roulette
             display_number = '00' if spin_number == -1 else str(spin_number)
             
@@ -280,55 +320,197 @@ with tab1:
             st.success(f"Added spin result: {display_number}")
             st.rerun()  # Refresh the page to show updated data
     
-    with data_input_tabs[1]:
-        # Live Casino Input
-        create_live_casino_panel(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
+    elif input_method == "OCR/Camera":
+        # OCR-based capture with simpler UI
+        st.subheader("📷 OCR/Camera Input")
+        
+        # Create tabs for different OCR methods
+        ocr_tabs = st.tabs(["Upload Image", "Camera Capture", "Screen Capture"])
+        
+        with ocr_tabs[0]:
+            st.write("Upload a photo of a roulette number or history board:")
+            
+            # Create tabs for single number and history board
+            img_type = st.radio("Select image type:", 
+                             ["Single Number", "History Board"],
+                             horizontal=True)
+            
+            uploaded_file = st.file_uploader(
+                "Upload image:", 
+                type=["png", "jpg", "jpeg"],
+                key="ocr_upload"
+            )
+            
+            if uploaded_file is not None:
+                # Process the uploaded image
+                from utils.ocr_capture import recognize_number, batch_process_history_board, validate_roulette_number
+                from PIL import Image
+                
+                image = Image.open(uploaded_file)
+                
+                # Display the image
+                st.image(image, caption="Uploaded Image", width=300)
+                
+                if img_type == "Single Number":
+                    # Process with OCR for single number
+                    number, confidence = recognize_number(image)
+                    
+                    if number and confidence > 0.5:
+                        st.success(f"✅ Recognized number: {number} (confidence: {confidence:.2f})")
+                        
+                        # Add button to confirm and add this number
+                        if st.button("Add This Number", type="primary", key="add_ocr_single"):
+                            st.session_state.roulette_data.add_spin(
+                                session_name=st.session_state.current_session,
+                                number=number,
+                                timestamp=datetime.now()
+                            )
+                            st.success(f"✅ Added {number} to session {st.session_state.current_session}")
+                            st.rerun()
+                    else:
+                        st.error("❌ Could not recognize a valid roulette number in this image.")
+                
+                else:  # History Board
+                    # Add batch processing button
+                    if st.button("Process History Board", type="primary", key="process_history"):
+                        with st.spinner("Processing roulette history board..."):
+                            # Process the image to identify multiple numbers
+                            numbers = batch_process_history_board(image)
+                            
+                            if numbers and len(numbers) > 0:
+                                # Display the recognized numbers
+                                st.success(f"✅ Recognized {len(numbers)} numbers from the history board!")
+                                
+                                # Create a dataframe to display the results
+                                import pandas as pd
+                                results_df = pd.DataFrame(numbers, columns=["Number", "Confidence"])
+                                st.dataframe(results_df)
+                                
+                                # Option to add all numbers
+                                reverse_order = st.checkbox("Reverse the order (oldest to newest)", value=False)
+                                
+                                if st.button("Add All Numbers", type="primary", key="add_all_history"):
+                                    # Process in the selected order
+                                    process_list = list(numbers)
+                                    if reverse_order:
+                                        process_list.reverse()
+                                    
+                                    # Add each number to the session
+                                    added_count = 0
+                                    for num, conf in process_list:
+                                        if validate_roulette_number(num):
+                                            st.session_state.roulette_data.add_spin(
+                                                session_name=st.session_state.current_session,
+                                                number=num,
+                                                timestamp=datetime.now() - timedelta(seconds=(added_count*10))
+                                            )
+                                            added_count += 1
+                                    
+                                    st.success(f"✅ Added {added_count} numbers to session {st.session_state.current_session}")
+                                    st.rerun()
+                            else:
+                                st.error("❌ Could not recognize any valid roulette numbers in this image.")
+        
+        with ocr_tabs[1]:
+            st.write("Use your device camera to capture roulette numbers:")
+            
+            # Add button to activate camera only when user wants it
+            if "show_camera" not in st.session_state:
+                st.session_state.show_camera = False
+                
+            if st.button("📷 Activate Camera", use_container_width=True):
+                st.session_state.show_camera = True
+                
+            # Only show camera input when the button is clicked
+            if st.session_state.show_camera:
+                # Upload from camera option
+                camera_file = st.camera_input("Take a photo of the roulette number")
+                
+                if camera_file is not None:
+                    # Process the uploaded image
+                    from utils.ocr_capture import recognize_number
+                    from PIL import Image
+                    
+                    image = Image.open(camera_file)
+                    
+                    # Display the image
+                    st.image(image, caption="Captured Image", width=300)
+                    
+                    # Process with OCR
+                    number, confidence = recognize_number(image)
+                    
+                    if number and confidence > 0.5:
+                        st.success(f"✅ Recognized number: {number} (confidence: {confidence:.2f})")
+                        
+                        # Add large, touchscreen-friendly button
+                        if st.button("ADD THIS NUMBER", type="primary", key="add_camera", use_container_width=True):
+                            st.session_state.roulette_data.add_spin(
+                                session_name=st.session_state.current_session,
+                                number=number,
+                                timestamp=datetime.now()
+                            )
+                            st.success(f"✅ Added {number} to session {st.session_state.current_session}")
+                            st.rerun()
+                    else:
+                        st.error("❌ Could not recognize a valid roulette number in this image.")
+            else:
+                st.info("Click 'Activate Camera' button above when you're ready to take a photo")
+                
+        with ocr_tabs[2]:
+            st.warning("Screen capture is not available in this environment.")
+            st.info("Please use the Upload Image or Camera options instead.")
     
-    with data_input_tabs[2]:
-        # Import from file
+    elif input_method == "Import From File":
+        st.subheader("📁 Import From File")
+        
+        # Import from file with clearer instructions
+        st.write("""
+        ### Import Roulette Data from CSV or Excel Files
+        
+        You can import spin data from CSV or Excel files. The file should have at least one column named 'number' 
+        containing the roulette numbers (0, 00, 1-36).
+        
+        **Optional columns:**
+        - 'timestamp': Date and time of each spin
+        """)
+        
         imported_data = create_file_importer()
         
         if imported_data is not None:
             with st.spinner("Importing data..."):
-                # Add each spin to the session
-                for _, row in imported_data.iterrows():
-                    number = row['number']
-                    timestamp = row['timestamp'] if 'timestamp' in row else datetime.now()
-                    
-                    st.session_state.roulette_data.add_spin(
-                        session_name=st.session_state.current_session,
-                        number=str(number),
-                        timestamp=timestamp
-                    )
+                # Show preview of the data
+                st.write("Data Preview:")
+                st.dataframe(imported_data.head())
                 
-                st.success(f"Successfully imported {len(imported_data)} spins!")
-                st.rerun()  # Refresh the page to show updated data
+                # Confirm import
+                if st.button("Confirm Import", type="primary"):
+                    # Add each spin to the session
+                    for _, row in imported_data.iterrows():
+                        number = row['number']
+                        timestamp = row['timestamp'] if 'timestamp' in row else datetime.now()
+                        
+                        st.session_state.roulette_data.add_spin(
+                            session_name=st.session_state.current_session,
+                            number=str(number),
+                            timestamp=timestamp
+                        )
+                    
+                    st.success(f"✅ Successfully imported {len(imported_data)} spins!")
+                    st.rerun()  # Refresh the page to show updated data
     
-    with data_input_tabs[3]:
-        # Web scraper for roulette data
+    elif input_method == "Live Casino":
+        st.subheader("🎲 Live Casino Input")
+        
+        # Add live casino with clearer instructions
         st.write("""
-        Use the web scraper to import roulette spin data from websites.
-        Enter the URL of a page containing roulette spin results.
+        ### Live Casino Input Tools
+        
+        This mode provides specialized tools for tracking spins while playing at a live casino, 
+        either online or in-person.
         """)
         
-        # Create the web scraper UI
-        scraped_data = create_web_scraper_ui()
-        
-        if scraped_data is not None:
-            with st.spinner("Importing scraped data..."):
-                # Add each spin to the session
-                for _, row in scraped_data.iterrows():
-                    number = row['number']
-                    timestamp = row['timestamp'] if 'timestamp' in row else datetime.now()
-                    
-                    st.session_state.roulette_data.add_spin(
-                        session_name=st.session_state.current_session,
-                        number=str(number),
-                        timestamp=timestamp
-                    )
-                
-                st.success(f"Successfully imported {len(scraped_data)} spins from web!")
-                st.rerun()  # Refresh the page to show updated data
+        # Create the live casino panel
+        create_live_casino_panel(st.session_state.current_session, st.session_state.roulette_data, current_roulette_type)
     
     # Display the current session's spin history
     st.subheader("Spin History")
@@ -353,8 +535,8 @@ with tab1:
         st.info("No spins recorded in this session yet. Add some spins to get started!")
 
 # Tab 2: Analysis
-with tab2:
-    st.header(f"Analysis - {st.session_state.current_session}")
+with main_tab2:
+    st.header("Data Analysis")
     
     # Get data for current session
     spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
@@ -504,9 +686,9 @@ with tab2:
     else:
         st.info("No spin data available for analysis. Please add spins in the Spin Tracker tab.")
 
-# Tab 3: Betting Suggestions
-with tab3:
-    st.header(f"Betting Suggestions - {st.session_state.current_session}")
+# Tab 3: Betting Strategies
+with main_tab3:
+    st.header("Betting Strategies")
     
     # Get data for current session
     spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
@@ -629,9 +811,9 @@ with tab3:
     else:
         st.info("No spin data available for betting suggestions. Please add spins in the Spin Tracker tab.")
 
-# Tab 4: Advanced Strategy Agent
-with tab4:
-    st.header(f"Advanced Strategy Agent - {st.session_state.current_session}")
+# Add Advanced Strategy section to the Betting Strategies tab
+with main_tab3:
+    st.subheader("🧠 Advanced Strategy Agent")
     
     # Add a sample data generator for testing the recommendation system
     with st.expander("Test Data Generator (For Development)"):
