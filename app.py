@@ -794,8 +794,10 @@ with tab4:
             
             st.success(f"Generated {sample_size} spins with {test_data_type} pattern for testing!")
     
-    # Get data for current session
+    # Get the latest data for current session (force refresh)
     spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    # Add this line to debug the issue with data not updating
+    st.session_state["last_data_refresh"] = datetime.datetime.now().strftime("%H:%M:%S.%f")
     current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
     
     if spins_df is not None and not spins_df.empty:
@@ -998,20 +1000,37 @@ with tab4:
                         # Add street bets (3 consecutive numbers in a row)
                         # Since we don't have explicit street bet analysis, we'll derive it from hot numbers
                         if specific_recommendations["single_numbers"]:
+                            # Get hot numbers and their confidence scores
                             hot_nums = [int(n["number"]) for n in specific_recommendations["single_numbers"] if str(n["number"]).isdigit()]
-                            # Check if any numbers form a street (3 consecutive numbers in a row)
+                            hot_num_confidence = {int(n["number"]): n["confidence"] for n in specific_recommendations["single_numbers"] if str(n["number"]).isdigit()}
+                            
+                            # Track streets that contain hot numbers
                             streets = []
+                            street_scores = {}
+                            
+                            # Check each hot number
                             for num in hot_nums:
-                                # A street consists of 3 consecutive numbers in a row (e.g., 1-2-3, 4-5-6, etc.)
-                                row = (int(num) - 1) // 3
+                                # Find which street this number belongs to
+                                row = (num - 1) // 3
                                 street_start = row * 3 + 1
                                 street = f"{street_start}-{street_start+1}-{street_start+2}"
+                                
+                                # Add street if not already in list
                                 if street not in streets:
                                     streets.append(street)
+                                    # Initialize score with the confidence of the hot number
+                                    street_scores[street] = hot_num_confidence[num]
+                                else:
+                                    # Increase score if another hot number is in the same street
+                                    street_scores[street] += hot_num_confidence[num]
                             
-                            if streets:
+                            # Sort streets by their scores (higher confidence first)
+                            sorted_streets = sorted(streets, key=lambda s: street_scores[s], reverse=True)
+                            
+                            if sorted_streets:
                                 time.sleep(0.1)  # Subtle delay for animation
-                                streets_str = ", ".join(streets[:2])
+                                # Show up to 2 streets, prioritizing those with higher scores
+                                streets_str = ", ".join(sorted_streets[:2])
                                 st.markdown(f"**Street Bets:** {streets_str}")
                     
                     # Animate second column with a slight delay
