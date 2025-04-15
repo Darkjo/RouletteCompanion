@@ -121,10 +121,20 @@ with st.sidebar:
         | $200-$499     | 4% of bankroll | Moderate approach for growth |
         | $500+         | 5% of bankroll | Standard ratio for larger bankrolls |
         
+        **Confidence Level Adjustments:**
+        
+        | Confidence | Adjustment | Example with $200 Bankroll |
+        |------------|------------|----------------------------|
+        | >75%       | +20%       | $8.00 → $9.60 |
+        | 65-75%     | +10%       | $8.00 → $8.80 |
+        | 40-65%     | No change  | $8.00 (standard) |
+        | <40%       | -10%       | $8.00 → $7.20 |
+        | Losing streak | -20%    | $8.00 → $6.40 |
+        
         **Additional Adaptive Factors:**
-        - Bet size increases with higher confidence levels
-        - Reduces during losing streaks for protection
-        - Adjusts based on pattern detection quality
+        - Pattern recognition affects confidence scoring
+        - Real-time adjustments based on recent results
+        - Protection mechanisms during losing streaks
         
         _This adaptive strategy helps manage risk while maximizing potential returns._
         """)
