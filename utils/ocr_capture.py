@@ -8,11 +8,12 @@ import pytesseract
 import time
 import streamlit as st
 from PIL import Image, ImageEnhance, ImageFilter
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import logging
 import threading
 import io
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -203,6 +204,146 @@ def validate_roulette_number(number):
         return True
         
     return False
+
+def batch_process_history_board(image):
+    """
+    Process an image of a roulette history board to extract multiple numbers.
+    
+    Args:
+        image (PIL.Image): The image of the history board
+        
+    Returns:
+        list: A list of tuples (number, confidence) for each detected number
+    """
+    try:
+        # Make a copy of the image to avoid modifying the original
+        img_copy = image.copy()
+        
+        # Convert to high contrast grayscale for better OCR
+        gray_image = img_copy.convert('L')
+        enhancer = ImageEnhance.Contrast(gray_image)
+        contrast_image = enhancer.enhance(2.5)  # Higher contrast for history boards
+        
+        # Convert to OpenCV format
+        cv_image = np.array(contrast_image)
+        
+        # Use adaptive thresholding for varying light conditions
+        binary = cv2.adaptiveThreshold(
+            cv_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY_INV, 11, 2
+        )
+        
+        # Try to find separate regions that might contain numbers
+        # This works better for digital boards with clear separation
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Filter contours by size to find potential number regions
+        min_area = 100  # Minimum area to consider
+        max_area = 5000  # Maximum area to consider
+        number_regions = []
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if min_area < area < max_area:
+                x, y, w, h = cv2.boundingRect(contour)
+                # Filter by aspect ratio to find square-ish areas (typical for roulette numbers)
+                aspect_ratio = float(w) / h
+                if 0.5 < aspect_ratio < 2.0:  # Reasonable aspect ratio for number boxes
+                    number_regions.append((x, y, w, h))
+        
+        # Sort regions by position (left-to-right, top-to-bottom)
+        # This helps maintain the order of numbers as they appear on the board
+        number_regions.sort(key=lambda r: (r[1] // 50, r[0]))  # Sort by rows first, then columns
+        
+        # Extract and process each region
+        results = []
+        processed_regions = []
+        
+        # Process each potential number region
+        for region in number_regions:
+            x, y, w, h = region
+            
+            # Check if this region overlaps with already processed regions
+            overlaps = False
+            for px, py, pw, ph in processed_regions:
+                if (x < px + pw and x + w > px and y < py + ph and y + h > py):
+                    # Regions overlap, skip this one
+                    overlaps = True
+                    break
+            
+            if overlaps:
+                continue
+                
+            # Extract the region
+            roi = binary[y:y+h, x:x+w]
+            
+            # Add padding around the ROI for better OCR
+            padded_roi = cv2.copyMakeBorder(roi, 10, 10, 10, 10, cv2.BORDER_CONSTANT, value=0)
+            
+            # Perform OCR with digits-only configuration
+            text = pytesseract.image_to_string(
+                padded_roi, 
+                config="--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789"
+            ).strip()
+            
+            # Get confidence
+            data = pytesseract.image_to_data(
+                padded_roi, 
+                config="--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789", 
+                output_type=pytesseract.Output.DICT
+            )
+            
+            # Process the OCR results
+            if text and any(data['text']):
+                # Extract the number
+                number = ''.join(c for c in text if c.isdigit())
+                
+                # Handle possible misread of "00"
+                # Check if the region is mostly green (typical color for 0/00)
+                if number == "0" or number == "00" or (number and int(number) > 36):
+                    # The original color might help determine if it's 0 or 00
+                    region_color = np.mean(np.array(img_copy.crop((x, y, x+w, y+h))), axis=(0, 1))
+                    # If it's predominantly green, it's likely 0 or 00
+                    if region_color[1] > max(region_color[0], region_color[2]):
+                        # Check the width/height ratio - 00 tends to be wider than 0
+                        if w > 1.5 * h:
+                            number = "00"
+                        else:
+                            number = "0"
+                
+                # Validate the number
+                if validate_roulette_number(number):
+                    # Get confidence
+                    confidences = [float(conf) for conf in data['conf'] if conf != '-1']
+                    max_conf = max(confidences) / 100.0 if confidences else 0.5  # Default to 0.5 if no confidence values
+                    
+                    results.append((number, max_conf))
+                    processed_regions.append(region)
+        
+        # If we didn't find any valid regions, try a different approach
+        if not results:
+            # Try a grid-based approach for more traditional boards
+            # Divide the image into a grid and process each cell
+            width, height = img_copy.size
+            grid_size = min(width, height) // 8  # Approximate size for a cell
+            
+            for y in range(0, height, grid_size):
+                for x in range(0, width, grid_size):
+                    # Extract a cell
+                    cell = contrast_image.crop((x, y, min(x + grid_size, width), min(y + grid_size, height)))
+                    
+                    # Process with OCR
+                    number, confidence = recognize_number(cell)
+                    
+                    # If we found a valid number, add it to results
+                    if number and validate_roulette_number(number) and confidence > 0.4:
+                        results.append((number, confidence))
+        
+        return results
+    
+    except Exception as e:
+        logger.error(f"Error processing history board: {e}")
+        return []
 
 def start_capture(session_name, roulette_data, interval=2.0):
     """
@@ -517,16 +658,101 @@ def create_ocr_capture_interface(session_name, roulette_data):
         
         with device_tabs[2]:
             st.subheader("Upload Roulette Images")
-            st.write("""
-            ### General Image Upload:
-            Upload any image containing a roulette number for OCR processing.
-            """)
             
-            uploaded_file = st.file_uploader(
-                "Upload a screenshot of a roulette number:", 
-                type=["png", "jpg", "jpeg"],
-                key="general_upload"
-            )
+            # Create tabs for single number and history board
+            upload_tabs = st.tabs(["Single Number", "History Board"])
+            
+            with upload_tabs[0]:
+                st.write("""
+                ### Single Number Upload:
+                Upload an image containing a single roulette number for OCR processing.
+                """)
+                
+                uploaded_file = st.file_uploader(
+                    "Upload a screenshot of a roulette number:", 
+                    type=["png", "jpg", "jpeg"],
+                    key="general_upload"
+                )
+            
+            with upload_tabs[1]:
+                st.write("""
+                ### Roulette History Board:
+                Upload an image of a roulette history/results board showing multiple recent spins.
+                The system will attempt to identify all visible numbers and add them to your session.
+                
+                **Tips for best results:**
+                - Make sure numbers are clearly visible
+                - Avoid glare or reflections on the screen
+                - For digital boards, ensure the image is high resolution
+                - Try to capture the board straight-on, not at an angle
+                """)
+                
+                history_file = st.file_uploader(
+                    "Upload a screenshot of a roulette history board:", 
+                    type=["png", "jpg", "jpeg"],
+                    key="history_board_upload"
+                )
+                
+                if history_file is not None:
+                    # Process the uploaded image
+                    image = Image.open(history_file)
+                    
+                    # Display the image
+                    st.image(image, caption="Uploaded History Board", width=600)
+                    
+                    # Add batch processing button
+                    if st.button("Process History Board", type="primary", key="process_history"):
+                        with st.spinner("Processing roulette history board..."):
+                            # Create a placeholder for results
+                            results_placeholder = st.empty()
+                            
+                            # Process the image to identify multiple numbers
+                            numbers = batch_process_history_board(image)
+                            
+                            if numbers and len(numbers) > 0:
+                                # Display the recognized numbers
+                                results_placeholder.success(f"✅ Recognized {len(numbers)} numbers from the history board!")
+                                
+                                # Show the numbers with their confidence
+                                st.write("#### Recognized Numbers:")
+                                st.write("(Listed from most recent to oldest based on typical board layouts)")
+                                
+                                # Create a dataframe to display the results
+                                import pandas as pd
+                                results_df = pd.DataFrame(numbers, columns=["Number", "Confidence"])
+                                st.dataframe(results_df)
+                                
+                                # Confirm addition of all numbers
+                                st.write("#### Add these numbers to your session?")
+                                
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    # Option to reverse the order
+                                    reverse_order = st.checkbox("Reverse the order (oldest to newest)", value=False)
+                                
+                                with col2:
+                                    # Add all button
+                                    if st.button("Add All Numbers", type="primary", key="add_all_history"):
+                                        # Process in the selected order
+                                        process_list = list(numbers)
+                                        if reverse_order:
+                                            process_list.reverse()
+                                        
+                                        # Add each number to the session
+                                        added_count = 0
+                                        for num, conf in process_list:
+                                            if validate_roulette_number(num):
+                                                roulette_data.add_spin(
+                                                    session_name=session_name,
+                                                    number=num,
+                                                    timestamp=datetime.now() - timedelta(seconds=(added_count*10))
+                                                )
+                                                added_count += 1
+                                        
+                                        st.success(f"✅ Added {added_count} numbers to session {session_name}")
+                            else:
+                                st.error("❌ Could not recognize any valid roulette numbers in this image.")
+                                st.info("Try adjusting the image or using a clearer picture of the history board.")
             
             if uploaded_file is not None:
                 # Process the uploaded image
