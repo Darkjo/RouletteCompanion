@@ -618,8 +618,12 @@ class RealTimeAdapter:
         
         # Add frequency-based recommendations
         for num_data in frequency_rec.get('hot_numbers', []):
+            # Include all the fields expected by app.py
             number_recs.append({
                 'number': num_data['number'],
+                'count': num_data['count'],
+                'frequency': f"{round(num_data['count'] / len(numbers) * 100, 1)}%",
+                'deviation': round(num_data['deviation_pct'] / 100 + 1, 2) if 'deviation_pct' in num_data else 1.5,
                 'confidence': num_data['confidence'],
                 'source': 'frequency',
                 'message': f"Hot in recent spins ({num_data['count']} occurrences)"
@@ -629,8 +633,13 @@ class RealTimeAdapter:
         for sector_data in sector_rec.get('sectors', []):
             for num in sector_data['numbers']:
                 if num not in ('0', '00'):  # Skip zeros
+                    # Add sector-based number with all required fields
+                    sector_count = next((numbers.count(num) for n in sector_data['numbers'] if n == num), 1)
                     number_recs.append({
                         'number': num,
+                        'count': sector_count,
+                        'frequency': f"{round(sector_count / len(numbers) * 100, 1)}%",
+                        'deviation': round(1.2, 2),  # Default deviation for sector-based numbers
                         'confidence': sector_data['confidence'] * 0.8,  # Lower confidence for individual numbers
                         'source': 'sector',
                         'message': f"In hot sector {sector_data['sector']}"
