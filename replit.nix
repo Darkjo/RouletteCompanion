@@ -1,5 +1,17 @@
 {pkgs}: {
   deps = [
+    pkgs.xvfb-run
+    pkgs.scrot
+    pkgs.zlib
+    pkgs.openjpeg
+    pkgs.libwebp
+    pkgs.libtiff
+    pkgs.libjpeg
+    pkgs.libimagequant
+    pkgs.lcms2
+    pkgs.libGLU
+    pkgs.libGL
+    pkgs.tesseract
     pkgs.jq
     pkgs.xsimd
     pkgs.libxcrypt
