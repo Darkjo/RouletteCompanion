@@ -46,14 +46,52 @@ def process_grid_history_board(image, expected_columns=10, expected_rows=5):
     """
     # Specialized for the exact format in the test image which has red/white numbers on black background
     try:
-        # Convert to NumPy array for OpenCV processing
-        np_image = np.array(image)
+        # Enhance contrast and apply preprocessing
+        enhancer = ImageEnhance.Contrast(image)
+        enhanced_image = enhancer.enhance(1.8)  # Increase contrast
         
-        # Check if image is colored and convert to grayscale if needed
+        # Convert to NumPy array for OpenCV processing
+        np_image = np.array(enhanced_image)
+        
+        # Check if image is colored and use color-based segmentation
         if len(np_image.shape) == 3:
-            gray_image = cv2.cvtColor(np_image, cv2.COLOR_RGB2GRAY)
+            # Extract red numbers (specific to this history board)
+            # Convert to HSV color space
+            hsv = cv2.cvtColor(np_image, cv2.COLOR_RGB2HSV)
+            
+            # Define range for red color
+            lower_red1 = np.array([0, 100, 100])
+            upper_red1 = np.array([10, 255, 255])
+            lower_red2 = np.array([160, 100, 100])
+            upper_red2 = np.array([180, 255, 255])
+            
+            # Create masks for red regions
+            mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+            mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+            red_mask = mask1 + mask2
+            
+            # Extract white text (for black/white numbers)
+            # Define range for white color
+            lower_white = np.array([0, 0, 180])
+            upper_white = np.array([255, 30, 255])
+            white_mask = cv2.inRange(hsv, lower_white, upper_white)
+            
+            # Combine masks
+            combined_mask = cv2.bitwise_or(red_mask, white_mask)
+            
+            # Apply mask
+            highlighted = cv2.bitwise_and(np_image, np_image, mask=combined_mask)
+            
+            # Convert to grayscale
+            gray_image = cv2.cvtColor(highlighted, cv2.COLOR_RGB2GRAY)
         else:
             gray_image = np_image
+            
+        # Apply adaptive thresholding to handle varying lighting conditions
+        binary = cv2.adaptiveThreshold(
+            gray_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY, 11, 2
+        )
             
         # Get image dimensions
         height, width = gray_image.shape
@@ -86,66 +124,99 @@ def process_grid_history_board(image, expected_columns=10, expected_rows=5):
                 if x2 - x1 < 5 or y2 - y1 < 5:
                     continue
                 
-                # Extract the cell
-                cell = gray_image[y1:y2, x1:x2]
+                # Extract the cell from both grayscale and binary versions
+                cell_gray = gray_image[y1:y2, x1:x2]
+                cell_binary = binary[y1:y2, x1:x2]
                 
                 # Skip empty cells
-                if cell.size == 0 or np.mean(cell) < 5 or np.mean(cell) > 250:
+                if cell_gray.size == 0:
                     continue
                 
-                # Threshold to make digits stand out
-                _, binary = cv2.threshold(cell, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                # Skip cells with very little variation (likely empty)
+                if np.std(cell_gray) < 10:
+                    continue
                 
-                # Convert back to PIL for OCR
-                cell_pil = Image.fromarray(binary)
+                # Try both regular threshold and adaptive threshold
+                # This helps with both bright and dark numbers
+                _, thresh1 = cv2.threshold(cell_gray, 120, 255, cv2.THRESH_BINARY)
+                _, thresh2 = cv2.threshold(cell_gray, 120, 255, cv2.THRESH_BINARY_INV)
                 
-                # Perform OCR
-                try:
-                    text = pytesseract.image_to_string(cell_pil, config=OCR_CONFIG).strip()
-                    if text:
-                        # Extract the number
-                        digits = ''.join(c for c in text if c.isdigit())
+                # Resize cell for better OCR (2x larger)
+                h, w = cell_gray.shape
+                resized = cv2.resize(cell_gray, (w*2, h*2), interpolation=cv2.INTER_CUBIC)
+                
+                # Prepare different versions for OCR
+                versions = [
+                    Image.fromarray(cell_gray),      # Original grayscale
+                    Image.fromarray(cell_binary),    # Binary
+                    Image.fromarray(thresh1),        # Threshold normal
+                    Image.fromarray(thresh2),        # Threshold inverted
+                    Image.fromarray(resized)         # Resized
+                ]
+                
+                # Try all versions until we get a valid number
+                for i, cell_pil in enumerate(versions):
+                    try:
+                        # Multiple OCR configurations for better coverage
+                        configs = [
+                            "--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789",
+                            "--oem 3 --psm 10 -c tessedit_char_whitelist=0123456789",
+                            "--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789",
+                        ]
                         
-                        # Handle special case for "00"
-                        if "00" in text:
-                            number = "00"
-                        elif digits:
-                            number = digits
-                            
-                            # Handle multi-digit numbers that might be invalid
-                            if len(number) > 2 and not validate_roulette_number(number):
-                                # Try just the first and second characters
-                                first_two = number[:2]
-                                if validate_roulette_number(first_two):
-                                    number = first_two
-                                # Or just the first digit
-                                elif validate_roulette_number(number[0]):
-                                    number = number[0]
-                                # Or single digits anywhere in the string
-                                for digit in number:
-                                    if validate_roulette_number(digit):
-                                        # Found a valid single digit
-                                        number = digit
-                                        break
-                        else:
-                            continue  # No digits found
-                            
-                        # Validate the number
-                        if validate_roulette_number(number):
-                            # Get confidence score (simplified, just based on OCR clarity)
-                            confidence = 0.75  # Default confidence
-                            
-                            # Higher confidence for single digits (less chance of error)
-                            if len(number) == 1:
-                                confidence = 0.85
+                        # Try all OCR configs
+                        for config in configs:
+                            text = pytesseract.image_to_string(cell_pil, config=config).strip()
+                            if text:
+                                # Extract the number
+                                digits = ''.join(c for c in text if c.isdigit())
                                 
-                            # Add to results
-                            results.append((number, confidence))
-                            logger.debug(f"Detected {number} at position ({row}, {col}) with confidence {confidence}")
-                            
-                except Exception as e:
-                    logger.debug(f"Error processing cell at ({row}, {col}): {e}")
-                    continue
+                                # Handle special case for "00"
+                                if "00" in text:
+                                    number = "00"
+                                elif digits:
+                                    number = digits
+                                    
+                                    # Handle multi-digit numbers that might be invalid
+                                    if len(number) > 2 and not validate_roulette_number(number):
+                                        # Try just the first and second characters
+                                        first_two = number[:2]
+                                        if validate_roulette_number(first_two):
+                                            number = first_two
+                                        # Or just the first digit
+                                        elif validate_roulette_number(number[0]):
+                                            number = number[0]
+                                        # Or single digits anywhere in the string
+                                        else:
+                                            for digit in number:
+                                                if validate_roulette_number(digit):
+                                                    # Found a valid single digit
+                                                    number = digit
+                                                    break
+                                    
+                                    # Validate the number
+                                    if validate_roulette_number(number):
+                                        # Get confidence score (based on version used)
+                                        # Earlier versions and configs get higher confidence
+                                        base_confidence = 0.85 - (i * 0.05) - (configs.index(config) * 0.03)
+                                        
+                                        # Higher confidence for single digits (less chance of error)
+                                        if len(number) == 1:
+                                            confidence = min(0.95, base_confidence + 0.05)
+                                        else:
+                                            confidence = base_confidence
+                                            
+                                        # Add to results
+                                        results.append((number, confidence))
+                                        logger.debug(f"Detected {number} at position ({row}, {col}) with confidence {confidence}")
+                                        
+                                        # We found a valid number, no need to try more versions
+                                        raise StopIteration
+                    except StopIteration:
+                        break
+                    except Exception as e:
+                        logger.debug(f"Error with version {i} at ({row}, {col}): {e}")
+                        continue
         
         # Remove duplicates and return
         unique_results = []
