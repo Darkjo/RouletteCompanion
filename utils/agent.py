@@ -277,7 +277,7 @@ class RLAgent:
         # Reset the real-time adapter
         self.real_time_adapter = RealTimeAdapter(window_size=20, min_confidence=0.6)
 
-    @st.cache_data(ttl=60)  # Cache for 60 seconds
+    @st.cache_data(ttl=30)  # Cache for 30 seconds to balance freshness and performance
     def get_cached_summary(_self):
         """
         Cached version of get_summary to avoid redundant calculations.
@@ -356,7 +356,7 @@ class RLAgent:
             })
         return summary_list
         
-    @st.cache_data(ttl=10)  # Cache for just 10 seconds to ensure fresh data while avoiding recalculation
+    @st.cache_data(ttl=5)  # Cache for just 5 seconds to ensure fresh data while avoiding recalculation
     def get_cached_bet_recommendations(_self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Cached version of get_specific_bet_recommendations.
@@ -372,11 +372,16 @@ class RLAgent:
         Returns:
             dict: Detailed recommendations with confidence scores
         """
-        # If specific fast_mode wasn't provided, auto-detect based on data size
-        if not fast_mode:
-            data_size = len(spins_df) if spins_df is not None else 0
-            # Auto-enable fast mode for large datasets unless explicitly disabled
-            fast_mode = (data_size > 20)
+        # Auto-detect fast_mode if not explicitly provided (more aggressive optimization)
+        # This ensures fast responses for larger datasets
+        data_size = len(spins_df) if spins_df is not None else 0
+        
+        # If fast_mode is False and dataset is large, switch to fast mode automatically
+        if not fast_mode and data_size > 15:
+            fast_mode = True
+            
+        # If fast_mode is explicitly True, ensure it remains True regardless of data size
+        # This allows efficient processing even for small test datasets
             
         return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode=fast_mode)
     

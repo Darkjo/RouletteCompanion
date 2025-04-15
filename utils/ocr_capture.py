@@ -156,11 +156,21 @@ def recognize_number(image):
         kernel = np.ones((2, 2), np.uint8)
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
         
-        # Perform OCR
-        text = pytesseract.image_to_string(binary, config=ocr_config)
-        
-        # Get confidence
-        data = pytesseract.image_to_data(binary, config=ocr_config, output_type=pytesseract.Output.DICT)
+        # Perform OCR with safe handling of None values
+        try:
+            text_result = pytesseract.image_to_string(binary, config=ocr_config)
+            text = text_result.strip() if text_result is not None else ""
+            
+            # Get confidence only if we have valid text
+            if text:
+                data = pytesseract.image_to_data(binary, config=ocr_config, output_type=pytesseract.Output.DICT)
+            else:
+                # Empty data structure if no text was found
+                data = {'text': [], 'conf': []}
+        except Exception as e:
+            logger.debug(f"OCR text extraction error: {e}")
+            text = ""
+            data = {'text': [], 'conf': []}
         
         # Extract the recognized number and confidence
         if len(data['text']) > 0 and any(data['text']):
@@ -411,10 +421,15 @@ def batch_process_history_board(image):
         # APPROACH 3: Full image OCR with segmentation for specific layouts
         # Try OCR on the full image with page segmentation to detect tabular data
         for psm in [6, 11, 12]:  # Try different page segmentation modes
-            full_text = pytesseract.image_to_string(
-                contrast_image, 
-                config=f"--oem 1 --psm {psm} -c tessedit_char_whitelist=0123456789"
-            )
+            try:
+                text_result = pytesseract.image_to_string(
+                    contrast_image, 
+                    config=f"--oem 1 --psm {psm} -c tessedit_char_whitelist=0123456789"
+                )
+                full_text = text_result if text_result is not None else ""
+            except Exception as e:
+                logger.debug(f"Full image OCR error with PSM {psm}: {e}")
+                full_text = ""
             
             # Extract digits and validate
             for match in re.finditer(r'(\d{1,2})', full_text):
