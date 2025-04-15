@@ -1113,7 +1113,7 @@ with tab4:
                             st.markdown(f"**Range:** {specific_recommendations['high_low']['recommendation'].upper()}")
                         
                         # Show all the column/dozen bets
-                        time.sleep(0.1)  # Slightly longer delay between sections
+                        # Removed animation delay
                         st.markdown("#### Column/Dozen Bets:")
                         
                         if specific_recommendations["columns"]["recommendation"]:
@@ -1136,8 +1136,7 @@ with tab4:
         
         # Create animated display of tabs section
         with st.spinner("Loading detailed recommendations..."):
-            # Add a slight delay before showing the detailed tabs for a smoother transition
-            time.sleep(0.4)
+            # Removed animation delay
             
             # Add an informational message to introduce the detailed tabs
             st.info("Explore detailed betting recommendations in the tabs below")
