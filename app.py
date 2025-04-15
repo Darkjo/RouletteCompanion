@@ -9,7 +9,7 @@ import json
 import os
 import time
 
-from utils.roulette_data import RouletteData
+from utils.roulette_data_optimized import RouletteData  # Using optimized version
 from utils.analysis import RouletteAnalyzer
 from utils.betting_strategies import BettingStrategist
 from utils.visualization import RouletteVisualizer
@@ -18,7 +18,7 @@ from utils.performance_tracker import StrategyPerformanceTracker
 from utils.strategies import StrategyEngine
 from utils.strategy_selector import choose_strategy, get_bet_size_recommendation, get_strategy_description
 from utils.file_import import create_file_importer
-from utils.quick_input import add_floating_quick_input
+from utils.quick_input_optimized import add_floating_quick_input  # Using the optimized version
 from utils.live_casino_input import create_live_casino_panel
 from utils.wheel_bias import WheelBiasDetector
 from utils.web_scraper import create_web_scraper_ui

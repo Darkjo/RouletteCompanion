@@ -65,38 +65,48 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
         
         with col1:
             if st.button("🔴 RED", key="quick_red", use_container_width=True):
-                on_result_callback(str(random.choice(RED_NUMBERS)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(RED_NUMBERS)))
             
             if st.button("EVEN", key="quick_even", use_container_width=True):
-                on_result_callback(str(random.choice(EVEN_NUMBERS)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(EVEN_NUMBERS)))
                 
             if st.button("1-12", key="quick_1st_dozen", use_container_width=True):
-                on_result_callback(str(random.choice(FIRST_DOZEN)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(FIRST_DOZEN)))
                 
             if st.button("13-24", key="quick_2nd_dozen", use_container_width=True):
-                on_result_callback(str(random.choice(SECOND_DOZEN)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(SECOND_DOZEN)))
                 
             if st.button("LOW (1-18)", key="quick_low", use_container_width=True):
-                on_result_callback(str(random.choice(LOW_NUMBERS)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(LOW_NUMBERS)))
                 
         with col2:
             if st.button("⚫ BLACK", key="quick_black", use_container_width=True):
-                on_result_callback(str(random.choice(BLACK_NUMBERS)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(BLACK_NUMBERS)))
             
             if st.button("ODD", key="quick_odd", use_container_width=True):
-                on_result_callback(str(random.choice(ODD_NUMBERS)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(ODD_NUMBERS)))
                 
             if st.button("25-36", key="quick_3rd_dozen", use_container_width=True):
-                on_result_callback(str(random.choice(THIRD_DOZEN)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(THIRD_DOZEN)))
                 
             if st.button("COLUMNS", key="quick_columns", use_container_width=True):
                 # Combine all columns into one button to reduce UI elements
-                column_sets = [FIRST_COLUMN, SECOND_COLUMN, THIRD_COLUMN]
-                selected_column = random.choice(column_sets)
-                on_result_callback(str(random.choice(selected_column)))
+                if on_result_callback:
+                    column_sets = [FIRST_COLUMN, SECOND_COLUMN, THIRD_COLUMN]
+                    selected_column = random.choice(column_sets)
+                    on_result_callback(str(random.choice(selected_column)))
                 
             if st.button("HIGH (19-36)", key="quick_high", use_container_width=True):
-                on_result_callback(str(random.choice(HIGH_NUMBERS)))
+                if on_result_callback:
+                    on_result_callback(str(random.choice(HIGH_NUMBERS)))
 
 def add_floating_quick_input(session_name, roulette_data, roulette_type):
     """
