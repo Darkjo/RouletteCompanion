@@ -788,6 +788,96 @@ with tab4:
         st.markdown(f"**Strategy:** {strategy_name}")
         st.markdown(f"**Bet Size:** ${recommended_bet:.2f}")
         
+        # Real-Time Adaptation Metrics Section
+        st.subheader("🔄 Real-Time Adaptation Metrics")
+        
+        # Calculate adaptation metrics
+        if hasattr(st.session_state.agent, 'real_time_adapter') and len(st.session_state.agent.real_time_adapter.recent_spins) > 0:
+            recent_count = len(st.session_state.agent.real_time_adapter.recent_spins)
+            adaptation_confidence = min(0.95, recent_count / 20)  # Max out at 95% with 20+ spins
+            
+            # Create metrics for adaptation state
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Recent Spins Analyzed", f"{recent_count}")
+            with col2:
+                st.metric("Adaptation State", 
+                         "Fully Adapted" if recent_count >= 20 else 
+                         "Adapting" if recent_count >= 10 else "Initial Phase")
+            with col3:
+                st.metric("Adaptation Confidence", f"{adaptation_confidence * 100:.1f}%")
+            
+            # Display adaptation insights
+            if recent_count >= 5:
+                # Get recent numbers
+                recent_numbers = [spin['number'] for spin in st.session_state.agent.real_time_adapter.recent_spins]
+                
+                # Calculate some basic statistics
+                number_counts = {}
+                for num in recent_numbers:
+                    if num in number_counts:
+                        number_counts[num] += 1
+                    else:
+                        number_counts[num] = 1
+                
+                sorted_numbers = sorted(number_counts.items(), key=lambda x: x[1], reverse=True)
+                
+                # Create an expander for detailed adaptation information
+                with st.expander("View Real-Time Adaptation Details"):
+                    st.write("### Recent Pattern Analysis")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("#### Recently Active Numbers")
+                        for num, count in sorted_numbers[:3]:  # Top 3 active numbers
+                            st.write(f"- Number **{num}** appeared **{count}** times")
+                    
+                    with col2:
+                        # Calculate property frequencies
+                        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+                        colors = {"red": 0, "black": 0, "green": 0}
+                        for num in recent_numbers:
+                            if num in ('0', '00'):
+                                colors["green"] += 1
+                            elif int(num) in red_numbers:
+                                colors["red"] += 1
+                            else:
+                                colors["black"] += 1
+                        
+                        st.write("#### Color Distribution")
+                        for color, count in colors.items():
+                            if count > 0:
+                                st.write(f"- **{color.capitalize()}**: {count} spins ({count/len(recent_numbers)*100:.1f}%)")
+                    
+                    # Show streak information
+                    st.write("### Current Streaks")
+                    
+                    # Detect color streaks
+                    if len(recent_numbers) >= 3:
+                        current_streak = 1
+                        last_num = recent_numbers[-1]
+                        if last_num not in ('0', '00'):
+                            current_property = "red" if int(last_num) in red_numbers else "black" 
+                            for i in range(len(recent_numbers)-2, -1, -1):
+                                num = recent_numbers[i]
+                                if num not in ('0', '00'):
+                                    prop = "red" if int(num) in red_numbers else "black"
+                                    if prop == current_property:
+                                        current_streak += 1
+                                    else:
+                                        break
+                        
+                            if current_streak >= 3:
+                                st.write(f"🔥 **{current_property.capitalize()} streak**: {current_streak} spins")
+                                if current_streak >= 6:
+                                    st.write("💡 **Recommendation**: Consider betting against this streak continuing")
+                                else:
+                                    st.write("💡 **Recommendation**: This streak may continue for 1-2 more spins")
+            else:
+                st.info("Add more spins to see real-time adaptation metrics. At least 5 spins are needed for basic adaptation, and 20+ for optimal performance.")
+        else:
+            st.info("No spins recorded yet. Add spins to activate real-time adaptation.")
+        
         # Add note about fast mode for 8-second window
         if len(spins_df) > 20:
             st.markdown("""
