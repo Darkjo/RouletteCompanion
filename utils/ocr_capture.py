@@ -96,40 +96,86 @@ def capture_screen_region():
 
 def preprocess_image(image):
     """
-    Preprocess the image for better OCR accuracy.
+    Preprocess the image for better OCR accuracy with improved error handling and performance.
     
     Args:
         image (PIL.Image): The input image
         
     Returns:
-        PIL.Image: The preprocessed image
+        PIL.Image: The preprocessed image or None if image is invalid
     """
+    if image is None:
+        logger.warning("Received None image in preprocess_image")
+        return None
+        
     try:
-        # Convert to grayscale
-        gray_image = image.convert('L')
+        # Check image dimensions - skip processing for very small images
+        width, height = image.size
+        if width < 10 or height < 10:
+            logger.warning(f"Image too small for processing: {width}x{height}")
+            return image
+            
+        # Convert to grayscale with error handling
+        try:
+            gray_image = image.convert('L')
+        except Exception as e:
+            logger.warning(f"Grayscale conversion failed: {e}")
+            # Try to create a new image from the array data as fallback
+            try:
+                img_array = np.array(image)
+                if len(img_array.shape) == 3:  # Color image
+                    # Manual grayscale conversion: 0.299*R + 0.587*G + 0.114*B
+                    gray_array = (0.299 * img_array[:,:,0] + 0.587 * img_array[:,:,1] + 0.114 * img_array[:,:,2]).astype(np.uint8)
+                    gray_image = Image.fromarray(gray_array)
+                else:
+                    gray_image = image  # Already grayscale or other format
+            except Exception:
+                logger.error("Failed fallback grayscale conversion")
+                return image
         
-        # Increase contrast
-        enhancer = ImageEnhance.Contrast(gray_image)
-        contrast_image = enhancer.enhance(2.0)
+        # Apply optimized contrast enhancement with error handling
+        try:
+            enhancer = ImageEnhance.Contrast(gray_image)
+            contrast_image = enhancer.enhance(2.0)
+        except Exception as e:
+            logger.warning(f"Contrast enhancement failed: {e}")
+            contrast_image = gray_image
         
-        # Apply thresholding
-        threshold_value = 150
-        threshold_image = contrast_image.point(lambda p: 255 if p > threshold_value else 0)
+        # Apply thresholding - faster method using NumPy for larger images
+        if width * height > 10000:  # Only use NumPy for larger images
+            try:
+                img_array = np.array(contrast_image)
+                threshold_value = 150
+                binary_array = (img_array > threshold_value) * 255
+                threshold_image = Image.fromarray(binary_array.astype(np.uint8))
+            except Exception as e:
+                logger.warning(f"NumPy thresholding failed: {e}")
+                # Fallback to PIL thresholding
+                threshold_image = contrast_image.point(lambda p: 255 if p > 150 else 0)
+        else:
+            threshold_image = contrast_image.point(lambda p: 255 if p > 150 else 0)
         
-        # Apply noise reduction
-        denoised_image = threshold_image.filter(ImageFilter.MedianFilter(size=3))
-        
-        # Sharpen the image
-        sharpened_image = denoised_image.filter(ImageFilter.SHARPEN)
-        
-        return sharpened_image
+        # Optimize filtering based on image size
+        if width * height < 5000:  # For smaller images, apply full filtering
+            # Apply noise reduction
+            denoised_image = threshold_image.filter(ImageFilter.MedianFilter(size=3))
+            
+            # Sharpen the image
+            sharpened_image = denoised_image.filter(ImageFilter.SHARPEN)
+            
+            return sharpened_image
+        else:
+            # For larger images, skip the median filter (more expensive) and just apply sharpening
+            return threshold_image.filter(ImageFilter.SHARPEN)
+            
     except Exception as e:
         logger.error(f"Error preprocessing image: {e}")
         return image  # Return original if processing fails
 
 def recognize_number(image):
     """
-    Perform OCR to recognize a roulette number from an image.
+    Perform OCR to recognize a roulette number from an image with enhanced error handling
+    and performance optimizations.
     
     Args:
         image (PIL.Image): The input image
@@ -140,21 +186,55 @@ def recognize_number(image):
     global ocr_config
     
     if not image:
+        logger.warning("Empty image provided to recognize_number")
         return None, 0.0
     
     try:
-        # Preprocess the image
+        # Preprocess the image with optimization
         processed_image = preprocess_image(image)
         
-        # Convert to OpenCV format for additional processing
-        cv_image = np.array(processed_image)
+        # If preprocessing failed, try with the original image
+        if processed_image is None:
+            logger.warning("Image preprocessing failed, using original image as fallback")
+            processed_image = image
         
-        # Further preprocessing with OpenCV
-        _, binary = cv2.threshold(cv_image, 150, 255, cv2.THRESH_BINARY_INV)
-        
-        # Remove noise
-        kernel = np.ones((2, 2), np.uint8)
-        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        # Convert to OpenCV format with error handling
+        try:
+            cv_image = np.array(processed_image)
+            
+            # Ensure grayscale for threshold operation
+            if len(cv_image.shape) > 2 and cv_image.shape[2] > 1:
+                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2GRAY)
+                
+            # Apply threshold with error checking
+            try:
+                _, binary = cv2.threshold(cv_image, 150, 255, cv2.THRESH_BINARY_INV)
+            except Exception as e:
+                logger.warning(f"OpenCV thresholding failed: {e}")
+                # Apply manual thresholding if OpenCV fails
+                binary = (cv_image < 150).astype(np.uint8) * 255
+                
+            # Check if binary image is valid
+            if binary is None or binary.size == 0:
+                raise ValueError("Binary image is invalid")
+                
+            # Remove noise with error handling
+            try:
+                kernel = np.ones((2, 2), np.uint8)
+                binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+            except Exception as e:
+                logger.warning(f"Morphology operation failed: {e}")
+                # Continue with unmodified binary image
+        except Exception as e:
+            logger.warning(f"OpenCV processing failed: {e}. Using PIL fallback.")
+            # Fallback to direct PIL processing
+            try:
+                # Create a binary image directly with PIL
+                binary_pil = processed_image.point(lambda p: 0 if p > 150 else 255)
+                binary = np.array(binary_pil)
+            except Exception as e2:
+                logger.error(f"PIL fallback also failed: {e2}")
+                return None, 0.0
         
         # Perform OCR with safe handling of None values
         try:
