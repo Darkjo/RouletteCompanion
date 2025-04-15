@@ -185,6 +185,9 @@ class RLAgent:
         Returns:
             float: Recommended bet size
         """
+        # Get the current losing streak for later use
+        losing_streak = self.recent_losing_streak()
+        
         # Calculate base bet size as a percentage of bankroll (conservative approach)
         if bankroll < 50:
             base_size = 1.0  # Minimum bet to protect bankroll
@@ -197,11 +200,14 @@ class RLAgent:
         else:
             base_size = round(bankroll * 0.05, 1)  # 5% of bankroll
         
+        # Start with base size as our adjusted size
+        adjusted_size = base_size
+        
         # Calculate pattern accuracy from the real-time adapter
         pattern_accuracy = None
         recent_spins_count = len(self.real_time_adapter.recent_spins)
         
-        # Only adjust if we have enough recent spins to analyze
+        # Only apply confidence and pattern-based adjustments if we have enough data
         if recent_spins_count >= 5 and confidence is not None:
             # Get pattern accuracy based on pattern memory if available
             if hasattr(self.real_time_adapter, 'pattern_memory') and self.real_time_adapter.pattern_memory:
@@ -216,39 +222,28 @@ class RLAgent:
                 if pattern_total > 0:
                     pattern_accuracy = pattern_hits / pattern_total
             
-            # If no pattern data or insufficient data, return base size
-            if pattern_accuracy is None:
-                return base_size
+            # Apply confidence-based adjustments if we have valid pattern data
+            if pattern_accuracy is not None:
+                # Blend confidence with pattern accuracy
+                effective_confidence = 0.7 * confidence + 0.3 * pattern_accuracy
                 
-            # Adjust bet size based on real-time data and confidence
-            # - Increase size for high confidence predictions
-            # - Decrease size when in a losing streak
-            # - Cap at 7% of bankroll for safety
-            losing_streak = self.recent_losing_streak()
-            
-            # Start with our base sizing
-            adjusted_size = base_size
-            
-            # Blend confidence with pattern accuracy
-            effective_confidence = 0.7 * confidence + 0.3 * pattern_accuracy
-            
-            # Adjust size up if confidence is high
-            if effective_confidence > 0.75:
-                adjusted_size *= 1.2  # 20% increase for high confidence
-            elif effective_confidence > 0.65:
-                adjusted_size *= 1.1  # 10% increase for good confidence
-            
-            # Adjust size down if confidence is low
-            if effective_confidence < 0.4:
-                adjusted_size *= 0.8  # 20% decrease for low confidence
+                # Adjust size up if confidence is high
+                if effective_confidence > 0.75:
+                    adjusted_size *= 1.2  # 20% increase for high confidence
+                elif effective_confidence > 0.65:
+                    adjusted_size *= 1.1  # 10% increase for good confidence
+                
+                # Adjust size down if confidence is low
+                if effective_confidence < 0.4:
+                    adjusted_size *= 0.8  # 20% decrease for low confidence
         
-        # Step 2: Adjust for losing streaks (be more cautious)
+        # Always adjust for losing streaks (be more cautious)
         if losing_streak >= 3:
-            adjusted_size *= 0.7  # Reduce by 30% during bad streaks
+            adjusted_size = adjusted_size * 0.7  # Reduce by 30% during bad streaks
         elif losing_streak == 2:
-            adjusted_size *= 0.85  # Reduce by 15% after two losses
+            adjusted_size = adjusted_size * 0.85  # Reduce by 15% after two losses
             
-        # Step 3: Safety caps
+        # Apply safety caps
         # Ensure minimum bet
         adjusted_size = max(1.0, adjusted_size)
         # Cap at 7% of bankroll for safety

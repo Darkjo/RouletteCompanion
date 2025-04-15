@@ -872,7 +872,13 @@ with tab4:
             with results_container:
                 # Add a small delay to create smooth transition effect
                 time.sleep(0.3)
-                st.info(specific_recommendations["confidence_explanation"])
+                # Display explanation if available, or adaptation message
+                if "confidence_explanation" in specific_recommendations:
+                    st.info(specific_recommendations["confidence_explanation"])
+                elif "message" in specific_recommendations:
+                    st.info(specific_recommendations["message"])
+                else:
+                    st.info("Analysis complete. Review the recommendations above.")
                 
                 # Display a clear summary of all recommendations at the top with animation
                 st.subheader("💰 Quick Recommendation Summary")
