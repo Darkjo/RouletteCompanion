@@ -338,36 +338,238 @@ def create_ocr_capture_interface(session_name, roulette_data):
     
     # Check for PyAutoGUI availability
     if not PYAUTOGUI_AVAILABLE:
-        st.warning("⚠️ Screen capture is not available in this environment (PyAutoGUI dependency missing).")
-        st.info("This feature requires a desktop environment with X11 display.")
+        st.warning("⚠️ Live screen capture is not available in this environment (PyAutoGUI dependency missing).")
+        st.info("The file upload option is available instead.")
         
-        # Provide alternative: image upload
-        st.subheader("Alternative: Upload Roulette Images")
-        uploaded_file = st.file_uploader("Upload a screenshot of a roulette number:", type=["png", "jpg", "jpeg"])
+        # Create device selection tabs
+        device_tabs = st.tabs(["Desktop Mode", "Tablet Mode", "Upload Images"])
         
-        if uploaded_file is not None:
-            # Process the uploaded image
-            image = Image.open(uploaded_file)
+        with device_tabs[0]:
+            st.subheader("Desktop Mode - Manual File Selection")
+            st.write("""
+            ### How to use Desktop Mode:
+            1. Use screenshot tools on your desktop computer to capture the roulette number display
+            2. Save the image files (one per spin)
+            3. Upload them below to process with OCR
+            4. Confirm the detected number is correct
+            """)
             
-            # Display the image
-            st.image(image, caption="Uploaded Image", width=300)
+            desktop_files = st.file_uploader(
+                "Upload screenshots of roulette numbers:", 
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True,
+                key="desktop_upload"
+            )
             
-            # Process with OCR
-            number, confidence = recognize_number(image)
+            if desktop_files:
+                for file in desktop_files:
+                    # Create columns for image and actions
+                    col1, col2 = st.columns([1, 2])
+                    
+                    # Process the uploaded image
+                    image = Image.open(file)
+                    
+                    # Display the image
+                    with col1:
+                        st.image(image, caption=file.name, width=150)
+                    
+                    # Process with OCR and show actions
+                    with col2:
+                        number, confidence = recognize_number(image)
+                        
+                        if number and confidence > 0.5:
+                            st.success(f"✅ Recognized: {number} (confidence: {confidence:.2f})")
+                            
+                            # Add button to confirm and add this number
+                            if st.button(f"Add {number}", key=f"add_desktop_{file.name}", type="primary"):
+                                roulette_data.add_spin(
+                                    session_name=session_name,
+                                    number=number,
+                                    timestamp=datetime.now()
+                                )
+                                st.success(f"✅ Added {number} to session {session_name}")
+                        else:
+                            st.error("❌ No valid number detected")
+                            
+                            # Allow manual entry
+                            number_input = st.number_input(
+                                "Enter number manually:", 
+                                min_value=0, 
+                                max_value=36,
+                                key=f"manual_{file.name}"
+                            )
+                            
+                            if st.button(f"Add {number_input}", key=f"add_manual_{file.name}"):
+                                roulette_data.add_spin(
+                                    session_name=session_name,
+                                    number=str(number_input),
+                                    timestamp=datetime.now()
+                                )
+                                st.success(f"✅ Added {number_input} to session {session_name}")
+                    
+                    st.divider()
+        
+        with device_tabs[1]:
+            st.subheader("Tablet Mode - Camera Capture")
+            st.write("""
+            ### How to use Tablet Mode:
+            1. Position your tablet/phone camera to view the roulette table or screen
+            2. Take photos of the number display after each spin
+            3. Upload the photos here for processing
+            4. Optimize for tablet use with larger buttons and simplified interface
+            """)
             
-            if number and confidence > 0.5:
-                st.success(f"✅ Recognized number: {number} (confidence: {confidence:.2f})")
+            # Upload from camera option (works well on tablets/phones)
+            camera_file = st.camera_input("Take a photo of the roulette number")
+            
+            if camera_file is not None:
+                # Process the uploaded image
+                image = Image.open(camera_file)
                 
-                # Add button to confirm and add this number
-                if st.button("Add This Number", type="primary"):
-                    roulette_data.add_spin(
-                        session_name=session_name,
-                        number=number,
-                        timestamp=datetime.now()
-                    )
-                    st.success(f"✅ Added {number} to session {session_name}")
-            else:
-                st.error("❌ Could not recognize a valid roulette number in this image.")
+                # Display the image
+                st.image(image, caption="Captured Image", width=300)
+                
+                # Process with OCR
+                number, confidence = recognize_number(image)
+                
+                if number and confidence > 0.5:
+                    st.success(f"✅ Recognized number: {number} (confidence: {confidence:.2f})")
+                    
+                    # Add large, touchscreen-friendly button
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        if st.button("ADD THIS NUMBER", type="primary", key="add_tablet", use_container_width=True):
+                            roulette_data.add_spin(
+                                session_name=session_name,
+                                number=number,
+                                timestamp=datetime.now()
+                            )
+                            st.success(f"✅ Added {number} to session {session_name}")
+                else:
+                    st.error("❌ Could not recognize a valid roulette number in this image.")
+                    
+                    # Quick number pad for easy manual entry on tablets
+                    st.subheader("Enter number manually:")
+                    
+                    # Zero buttons
+                    zero_col1, zero_col2 = st.columns(2)
+                    with zero_col1:
+                        if st.button("0", key="tablet_0", use_container_width=True):
+                            roulette_data.add_spin(
+                                session_name=session_name,
+                                number="0",
+                                timestamp=datetime.now()
+                            )
+                            st.success(f"✅ Added 0 to session {session_name}")
+                    
+                    with zero_col2:
+                        if st.button("00", key="tablet_00", use_container_width=True):
+                            roulette_data.add_spin(
+                                session_name=session_name,
+                                number="00",
+                                timestamp=datetime.now()
+                            )
+                            st.success(f"✅ Added 00 to session {session_name}")
+                    
+                    # Number grid - display numbers 1-36 in a grid for easy selection
+                    # Show in groups of 12 numbers (1-12, 13-24, 25-36)
+                    st.write("#### Numbers 1-12:")
+                    for row in range(4):
+                        cols = st.columns(3)
+                        for col in range(3):
+                            num = row * 3 + col + 1
+                            if 1 <= num <= 12:
+                                if cols[col].button(f"{num}", key=f"tablet_{num}", use_container_width=True):
+                                    roulette_data.add_spin(
+                                        session_name=session_name,
+                                        number=str(num),
+                                        timestamp=datetime.now()
+                                    )
+                                    st.success(f"✅ Added {num} to session {session_name}")
+                    
+                    st.write("#### Numbers 13-24:")
+                    for row in range(4):
+                        cols = st.columns(3)
+                        for col in range(3):
+                            num = row * 3 + col + 13
+                            if 13 <= num <= 24:
+                                if cols[col].button(f"{num}", key=f"tablet_{num}", use_container_width=True):
+                                    roulette_data.add_spin(
+                                        session_name=session_name,
+                                        number=str(num),
+                                        timestamp=datetime.now()
+                                    )
+                                    st.success(f"✅ Added {num} to session {session_name}")
+                    
+                    st.write("#### Numbers 25-36:")
+                    for row in range(4):
+                        cols = st.columns(3)
+                        for col in range(3):
+                            num = row * 3 + col + 25
+                            if 25 <= num <= 36:
+                                if cols[col].button(f"{num}", key=f"tablet_{num}", use_container_width=True):
+                                    roulette_data.add_spin(
+                                        session_name=session_name,
+                                        number=str(num),
+                                        timestamp=datetime.now()
+                                    )
+                                    st.success(f"✅ Added {num} to session {session_name}")
+        
+        with device_tabs[2]:
+            st.subheader("Upload Roulette Images")
+            st.write("""
+            ### General Image Upload:
+            Upload any image containing a roulette number for OCR processing.
+            """)
+            
+            uploaded_file = st.file_uploader(
+                "Upload a screenshot of a roulette number:", 
+                type=["png", "jpg", "jpeg"],
+                key="general_upload"
+            )
+            
+            if uploaded_file is not None:
+                # Process the uploaded image
+                image = Image.open(uploaded_file)
+                
+                # Display the image
+                st.image(image, caption="Uploaded Image", width=300)
+                
+                # Process with OCR
+                number, confidence = recognize_number(image)
+                
+                if number and confidence > 0.5:
+                    st.success(f"✅ Recognized number: {number} (confidence: {confidence:.2f})")
+                    
+                    # Add button to confirm and add this number
+                    if st.button("Add This Number", type="primary", key="add_upload"):
+                        roulette_data.add_spin(
+                            session_name=session_name,
+                            number=number,
+                            timestamp=datetime.now()
+                        )
+                        st.success(f"✅ Added {number} to session {session_name}")
+                else:
+                    st.error("❌ Could not recognize a valid roulette number in this image.")
+                    
+                    # Manual entry option
+                    st.subheader("Enter manually:")
+                    num_col1, num_col2 = st.columns([3, 1])
+                    
+                    with num_col1:
+                        manual_num = st.text_input("Number:", key="manual_upload")
+                    
+                    with num_col2:
+                        if st.button("Add", key="add_manual_upload", use_container_width=True):
+                            if validate_roulette_number(manual_num):
+                                roulette_data.add_spin(
+                                    session_name=session_name,
+                                    number=manual_num,
+                                    timestamp=datetime.now()
+                                )
+                                st.success(f"✅ Added {manual_num} to session {session_name}")
+                            else:
+                                st.error("❌ Invalid roulette number")
         
         return
     
