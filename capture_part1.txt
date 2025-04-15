@@ -1,0 +1,300 @@
+            except Exception as e:
+                logger.warning(f"NumPy thresholding failed: {e}")
+                # Fallback to PIL thresholding
+                threshold_image = contrast_image.point(lambda p: 255 if p > 150 else 0)
+        else:
+            threshold_image = contrast_image.point(lambda p: 255 if p > 150 else 0)
+        
+        # Optimize filtering based on image size
+        if width * height < 5000:  # For smaller images, apply full filtering
+            # Apply noise reduction
+            denoised_image = threshold_image.filter(ImageFilter.MedianFilter(size=3))
+            
+            # Sharpen the image
+            sharpened_image = denoised_image.filter(ImageFilter.SHARPEN)
+            
+            return sharpened_image
+        else:
+            # For larger images, skip the median filter (more expensive) and just apply sharpening
+            return threshold_image.filter(ImageFilter.SHARPEN)
+            
+    except Exception as e:
+        logger.error(f"Error preprocessing image: {e}")
+        return image  # Return original if processing fails
+
+def recognize_number(image):
+    """
+    Perform OCR to recognize a roulette number from an image with enhanced error handling
+    and performance optimizations.
+    
+    Args:
+        image (PIL.Image): The input image
+        
+    Returns:
+        tuple: (recognized_number, confidence)
+    """
+    global ocr_config
+    
+    if not image:
+        logger.warning("Empty image provided to recognize_number")
+        return None, 0.0
+    
+    try:
+        # Preprocess the image with optimization
+        processed_image = preprocess_image(image)
+        
+        # If preprocessing failed, try with the original image
+        if processed_image is None:
+            logger.warning("Image preprocessing failed, using original image as fallback")
+            processed_image = image
+        
+        # Convert to OpenCV format with error handling
+        try:
+            cv_image = np.array(processed_image)
+            
+            # Ensure grayscale for threshold operation
+            if len(cv_image.shape) > 2 and cv_image.shape[2] > 1:
+                cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2GRAY)
+                
+            # Apply threshold with error checking
+            try:
+                _, binary = cv2.threshold(cv_image, 150, 255, cv2.THRESH_BINARY_INV)
+            except Exception as e:
+                logger.warning(f"OpenCV thresholding failed: {e}")
+                # Apply manual thresholding if OpenCV fails
+                binary = (cv_image < 150).astype(np.uint8) * 255
+                
+            # Check if binary image is valid
+            if binary is None or binary.size == 0:
+                raise ValueError("Binary image is invalid")
+                
+            # Remove noise with error handling
+            try:
+                kernel = np.ones((2, 2), np.uint8)
+                binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+            except Exception as e:
+                logger.warning(f"Morphology operation failed: {e}")
+                # Continue with unmodified binary image
+        except Exception as e:
+            logger.warning(f"OpenCV processing failed: {e}. Using PIL fallback.")
+            # Fallback to direct PIL processing
+            try:
+                # Create a binary image directly with PIL
+                binary_pil = processed_image.point(lambda p: 0 if p > 150 else 255)
+                binary = np.array(binary_pil)
+            except Exception as e2:
+                logger.error(f"PIL fallback also failed: {e2}")
+                return None, 0.0
+        
+        # Perform OCR with safe handling of None values
+        try:
+            text_result = pytesseract.image_to_string(binary, config=ocr_config)
+            text = text_result.strip() if text_result is not None else ""
+            
+            # Get confidence only if we have valid text
+            if text:
+                data = pytesseract.image_to_data(binary, config=ocr_config, output_type=pytesseract.Output.DICT)
+            else:
+                # Empty data structure if no text was found
+                data = {'text': [], 'conf': []}
+        except Exception as e:
+            logger.debug(f"OCR text extraction error: {e}")
+            text = ""
+            data = {'text': [], 'conf': []}
+        
+        # Extract the recognized number and confidence
+        if len(data['text']) > 0 and any(data['text']):
+            # Find highest confidence text
+            confidences = [float(conf) for conf in data['conf'] if conf != '-1']
+            if confidences:
+                max_conf = max(confidences) / 100.0  # Convert to 0-1 scale
+                
+                # Extract the number
+                number = ''.join(c for c in text if c.isdigit())
+                
+                # Handle special case for "00"
+                if "00" in text:
+                    number = "00"
+                
+                # Validate that it's a valid roulette number
+                if number in ["0", "00"] or (number.isdigit() and 1 <= int(number) <= 36):
+                    return number, max_conf
+        
+        return None, 0.0
+    except Exception as e:
+        logger.error(f"Error recognizing number: {e}")
+        return None, 0.0
+
+def validate_roulette_number(number):
+    """
+    Validate if a string is a valid roulette number.
+    
+    Args:
+        number (str): The number to validate
+        
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    if not number:
+        return False
+        
+    if number == "0" or number == "00":
+        return True
+        
+    if number.isdigit() and 1 <= int(number) <= 36:
+        return True
+        
+    return False
+
+def batch_process_history_board(image):
+    """
+    Process an image of a roulette history board to extract multiple numbers.
+    Enhanced to recognize more numbers using multiple OCR approaches.
+    
+    Args:
+        image (PIL.Image): The image of the history board
+        
+    Returns:
+        list: A list of tuples (number, confidence) for each detected number
+    """
+    try:
+        # Make a copy of the image to avoid modifying the original
+        img_copy = image.copy()
+        
+        # Get image dimensions
+        width, height = img_copy.size
+        
+        # Try multiple preprocessing approaches to maximize number detection
+        results = []
+        
+        # APPROACH 1: Traditional contour-based detection with enhanced preprocessing
+        
+        # Convert to high contrast grayscale
+        gray_image = img_copy.convert('L')
+        enhancer = ImageEnhance.Contrast(gray_image)
+        contrast_image = enhancer.enhance(2.5)  # Higher contrast for history boards
+        
+        # Convert to OpenCV format
+        cv_image = np.array(contrast_image)
+        
+        # Apply different thresholding techniques
+        # 1. Adaptive thresholding
+        binary_adaptive = cv2.adaptiveThreshold(
+            cv_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY_INV, 11, 2
+        )
+        
+        # 2. Otsu's thresholding
+        _, binary_otsu = cv2.threshold(cv_image, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        
+        # Process both thresholded images
+        binary_images = [binary_adaptive, binary_otsu]
+        
+        for binary in binary_images:
+            # Find contours in the binary image
+            contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Filter contours by size and shape
+            min_area = 80  # Reduced minimum area to catch smaller numbers
+            max_area = 8000  # Increased maximum area to catch larger displays
+            number_regions = []
+            
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if min_area < area < max_area:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    # Allow wider range of aspect ratios
+                    aspect_ratio = float(w) / h
+                    if 0.3 < aspect_ratio < 3.0:  # More permissive aspect ratio
+                        number_regions.append((x, y, w, h))
+            
+            # Sort regions by position (left-to-right, top-to-bottom)
+            number_regions.sort(key=lambda r: (r[1] // 30, r[0]))  # Reduced grid size to 30px
+            
+            # Extract and process each region
+            processed_regions = []
+            
+            # Process each potential number region
+            for region in number_regions:
+                x, y, w, h = region
+                
+                # Check if this region overlaps with already processed regions
+                overlaps = False
+                for px, py, pw, ph in processed_regions:
+                    # Check for significant overlap (more than 60% overlap)
+                    overlap_area = max(0, min(x+w, px+pw) - max(x, px)) * max(0, min(y+h, py+ph) - max(y, py))
+                    min_area = min(w*h, pw*ph)
+                    if overlap_area > 0.6 * min_area:  # Only skip if significant overlap
+                        overlaps = True
+                        break
+                
+                if overlaps:
+                    continue
+                    
+                # Extract the region with margin
+                margin = int(max(w, h) * 0.2)  # Add 20% margin
+                x1 = max(0, x - margin)
+                y1 = max(0, y - margin)
+                x2 = min(binary.shape[1], x + w + margin)
+                y2 = min(binary.shape[0], y + h + margin)
+                roi = binary[y1:y2, x1:x2]
+                
+                if roi.size == 0:  # Skip empty regions
+                    continue
+                
+                # Try multiple OCR configurations for better results
+                ocr_configs = [
+                    "--oem 1 --psm 10 -c tessedit_char_whitelist=0123456789",  # Single digit
+                    "--oem 1 --psm 7 -c tessedit_char_whitelist=0123456789",   # Single line
+                    "--oem 1 --psm 8 -c tessedit_char_whitelist=0123456789"    # Single word
+                ]
+                
+                best_number = None
+                best_confidence = 0
+                
+                for config in ocr_configs:
+                    # Perform OCR with current configuration and handle None results
+                    try:
+                        text_result = pytesseract.image_to_string(roi, config=config)
+                        text = text_result.strip() if text_result is not None else ""
+                        
+                        # Get confidence - only if we got a valid text result
+                        if text:
+                            data = pytesseract.image_to_data(
+                                roi, config=config, output_type=pytesseract.Output.DICT
+                            )
+                        else:
+                            # Create empty data structure if no text was detected
+                            data = {'text': [], 'conf': []}
+                    except Exception as e:
+                        logger.debug(f"OCR processing error: {e}")
+                        text = ""
+                        data = {'text': [], 'conf': []}
+                    
+                    # Process the OCR results
+                    if text and any(data['text']):
+                        # Extract the number
+                        number = ''.join(c for c in text if c.isdigit())
+                        
+                        # Check if it's potentially a valid roulette number
+                        if number and (number == "0" or number == "00" or 
+                                      (number.isdigit() and 0 <= int(number) <= 36)):
+                            
+                            # Handle 00 cases - check if it's an American roulette number
+                            if len(number) > 2 and number.startswith("00"):
+                                # Likely a double zero misread as more digits
+                                number = "00"
+                            elif len(number) > 1 and number != "00":
+                                # For numbers with multiple digits, ensure they're valid roulette numbers
+                                if int(number) > 36:
+                                    # If number is too large, try to take just the first or last digit
+                                    if int(number[0]) <= 36:
+                                        number = number[0]
+                                    elif int(number[-1]) <= 36:
+                                        number = number[-1]
+                            
+                            # Get confidence score
+                            confidences = [float(conf) for conf in data['conf'] if conf != '-1']
+                            conf_value = max(confidences) / 100.0 if confidences else 0.5
+                            
+                            # Check if this is better than our previous best for this region

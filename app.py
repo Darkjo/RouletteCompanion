@@ -371,41 +371,60 @@ with main_tab1:
                         st.error("❌ Could not recognize a valid roulette number in this image.")
                 
                 else:  # History Board
-                    # Add options for processing methods
+                    # Add options for processing methods with Fast as default for better performance
                     ocr_method = st.radio(
                         "Choose processing method:",
-                        ["Standard (More accurate)", "Fast (Optimized for speed)"],
+                        ["Ultra Fast (Maximum speed)", "Fast (Balanced)", "Standard (Most accurate)"],
+                        index=0, # Default to Ultra Fast
                         horizontal=True,
-                        help="Standard is better for varied layouts, Fast is optimized for grid-based history boards with red/white numbers"
+                        help="Ultra Fast works best with digital displays, Fast is for most boards, Standard for unusual layouts"
                     )
                     
                     # Add batch processing button
                     if st.button("Process History Board", type="primary", key="process_history"):
                         with st.spinner("Processing roulette history board..."):
-                            if ocr_method == "Fast (Optimized for speed)":
-                                # Import our specialized fast OCR module
+                            start_time = time.time()
+                            
+                            if ocr_method == "Ultra Fast (Maximum speed)":
+                                # Import our ultra-optimized OCR module
+                                try:
+                                    from utils.optimized_ocr import process_image
+                                    # Process with the ultra-fast method
+                                    numbers = process_image(image)
+                                    processing_time = time.time() - start_time
+                                    st.success(f"Ultra-fast processing completed in {processing_time:.2f} seconds")
+                                except ImportError:
+                                    st.warning("Ultra-fast module not available, falling back to Fast mode")
+                                    from utils.specialized_ocr import process_roulette_board
+                                    number_list = process_roulette_board(image, rows=6, cols=8)
+                                    numbers = [(num, 0.8) for num in number_list]
+                                    processing_time = time.time() - start_time
+                                    st.info(f"Fast processing completed in {processing_time:.2f} seconds")
+                                    
+                            elif ocr_method == "Fast (Balanced)":
+                                # Use the specialized OCR module
                                 try:
                                     from utils.specialized_ocr import process_roulette_board
-                                    # Process with the specialized fast method
-                                    start_time = time.time()
-                                    # Try first with 8x6 layout (common for digital boards)
+                                    # Process with the specialized method
                                     number_list = process_roulette_board(image, rows=6, cols=8)
                                     if len(number_list) < 10:
-                                        # If that didn't find many numbers, try 6x8 layout
+                                        # If that didn't find many numbers, try other layout
                                         number_list = process_roulette_board(image, rows=8, cols=6)
                                     
                                     # Convert to the expected format
                                     numbers = [(num, 0.8) for num in number_list]
                                     processing_time = time.time() - start_time
-                                    
-                                    # Display timing info
                                     st.info(f"Fast processing completed in {processing_time:.2f} seconds")
                                 except ImportError:
                                     st.warning("Fast processing module not available, using standard method")
                                     numbers = batch_process_history_board(image)
+                                    processing_time = time.time() - start_time
+                                    st.info(f"Standard processing completed in {processing_time:.2f} seconds")
                             else:
-                                # Use the standard method
+                                # Use the standard full-featured method
                                 numbers = batch_process_history_board(image)
+                                processing_time = time.time() - start_time
+                                st.info(f"Standard processing completed in {processing_time:.2f} seconds")
                             
                             if numbers and len(numbers) > 0:
                                 # Display the recognized numbers
