@@ -7,6 +7,13 @@ import pandas as pd
 import numpy as np
 import time
 
+# Import OCR screen capture module (handle import errors gracefully)
+try:
+    from utils.ocr_capture import create_ocr_capture_interface
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+
 def create_live_casino_panel(session_name, roulette_data, roulette_type="European"):
     """
     Create a specialized panel for recording spins from a live casino setting.
@@ -19,7 +26,13 @@ def create_live_casino_panel(session_name, roulette_data, roulette_type="Europea
     st.subheader("🎰 Live Casino Input")
     
     # Create tabs for different input methods
-    input_tabs = st.tabs(["Numeric Pad", "Recent Numbers", "Last Calls"])
+    # Add OCR tab if available
+    tab_options = ["Numeric Pad", "Recent Numbers", "Last Calls"]
+    
+    if OCR_AVAILABLE:
+        tab_options.append("OCR Screen Capture")
+    
+    input_tabs = st.tabs(tab_options)
     
     with input_tabs[0]:
         create_numeric_pad(session_name, roulette_data)
@@ -29,6 +42,11 @@ def create_live_casino_panel(session_name, roulette_data, roulette_type="Europea
     
     with input_tabs[2]:
         create_last_calls_tracker(session_name, roulette_data, roulette_type)
+    
+    # OCR screen capture tab
+    if OCR_AVAILABLE and len(input_tabs) > 3:
+        with input_tabs[3]:
+            create_ocr_capture_interface(session_name, roulette_data)
 
 def create_numeric_pad(session_name, roulette_data):
     """
