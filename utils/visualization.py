@@ -874,7 +874,8 @@ class RouletteVisualizer:
             
     def plot_betting_strategy_heatmap(self, spins_df, roulette_type, bet_recommendations):
         """
-        Create a heatmap visualization of personalized betting strategy recommendations.
+        Create a circular heatmap visualization of personalized betting strategy recommendations
+        that resembles an actual roulette wheel layout.
         
         Args:
             spins_df (pd.DataFrame): DataFrame with spin data
@@ -893,150 +894,154 @@ class RouletteVisualizer:
             )
             return fig
             
-        # Create a grid representation of the roulette table
+        # Define roulette wheel numbers in their traditional sequence
+        # European roulette wheel sequence: 0-32-15-19-4-21-2-25-17-34-6-27-13-36-11-30-8-23-10-5-24-16-33-1-20-14-31-9-22-18-29-7-28-12-35-3-26
         if roulette_type == "European":
-            numbers = [0] + list(range(1, 37))
+            wheel_sequence = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26]
         else:  # American
-            numbers = [0, "00"] + list(range(1, 37))
-            
+            # American wheel has 0 and 00 opposite each other
+            wheel_sequence = [0, 28, 9, 26, 30, 11, 7, 20, 32, 17, 5, 22, 34, 15, 3, 24, 36, 13, 1, 
+                             '00', 27, 10, 25, 29, 12, 8, 19, 31, 18, 6, 21, 33, 16, 4, 23, 35, 14, 2]
+        
         # Determine the base confidence for each number (default to very low)
-        number_confidence = {str(num): 0.05 for num in numbers}
+        number_confidence = {str(num): 0.05 for num in wheel_sequence}
         
         # Populate confidence values from recommendations
         if bet_recommendations and "single_numbers" in bet_recommendations:
             for num_data in bet_recommendations["single_numbers"]:
                 number_confidence[str(num_data["number"])] = num_data["confidence"]
-                
-        # Create a more structured visualization of the roulette layout
-        # We'll create a grid representing the standard roulette layout
         
-        # Define the layout for visualization
-        layout = []
-        
-        # First row with 0 (and 00 for American)
-        if roulette_type == "European":
-            first_row = ["", "0", ""]
-        else:
-            first_row = ["00", "0", ""]
-        layout.append(first_row)
-        
-        # Main grid 3x12
-        for row in range(3):
-            layout_row = []
-            for col in range(12):
-                num = row + 3*col + 1
-                layout_row.append(str(num))
-            layout.append(layout_row)
-            
-        # Prepare data for the heatmap
-        z_values = []
-        annotations = []
-        hover_text = []
-        x_labels = []
-        y_labels = ['Zero', '1st Row', '2nd Row', '3rd Row']
-        
-        # Create the heatmap data
-        for row_idx, row in enumerate(layout):
-            z_row = []
-            hover_row = []
-            
-            for col_idx, num in enumerate(row):
-                # Only add column labels for the first pass
-                if row_idx == 0:
-                    if col_idx == 0 and roulette_type == "American":
-                        x_labels.append("00")
-                    elif col_idx == 1:
-                        x_labels.append("0")
-                    else:
-                        x_labels.append(str(col_idx))
-                        
-                if not num:  # Empty cell
-                    z_row.append(None)
-                    hover_row.append("")
-                else:
-                    confidence = number_confidence.get(num, 0.05)
-                    z_row.append(confidence)
-                    hover_row.append(f"Number: {num}<br>Confidence: {confidence:.2%}")
-                    
-                    # Add number as annotation on the heatmap
-                    if num:
-                        color = "black"
-                        if num != "0" and num != "00" and int(num) > 0:
-                            # Red numbers in roulette
-                            red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
-                            if int(num) in red_numbers:
-                                color = "red"
-                                
-                        annotations.append(dict(
-                            x=col_idx,
-                            y=row_idx,
-                            text=num,
-                            showarrow=False,
-                            font=dict(
-                                color=color,
-                                size=14
-                            )
-                        ))
-            
-            z_values.append(z_row)
-            hover_text.append(hover_row)
-        
-        # Create the heatmap
+        # Set up the circular visualization
+        # We'll use a scatter plot with markers at different distances from center
         fig = go.Figure()
         
-        # Define heatmap colorscale for confidence
-        colorscale = [
-            [0, 'rgba(240, 240, 240, 0.8)'],      # Very low confidence
-            [0.2, 'rgba(220, 244, 223, 0.8)'],    # Low confidence
-            [0.4, 'rgba(184, 226, 184, 0.8)'],    # Medium confidence
-            [0.6, 'rgba(144, 201, 135, 0.8)'],    # Higher confidence
-            [0.8, 'rgba(104, 170, 99, 0.8)'],     # Strong confidence
-            [1.0, 'rgba(51, 142, 77, 0.8)']       # Very strong confidence
-        ]
+        # Define marker colors based on roulette colors
+        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
         
-        fig.add_trace(go.Heatmap(
-            z=z_values,
-            x=list(range(len(x_labels))),
-            y=list(range(len(y_labels))),
-            hoverongaps=False,
+        # Calculate positions in a circle
+        radius = 1
+        num_numbers = len(wheel_sequence)
+        angles = [2 * np.pi * i / num_numbers for i in range(num_numbers)]
+        
+        # Create x and y coordinates for each number
+        x_coords = [radius * np.cos(angle) for angle in angles]
+        y_coords = [radius * np.sin(angle) for angle in angles]
+        
+        # Define marker colors and sizes
+        colors = []
+        sizes = []
+        hover_texts = []
+        
+        for i, num in enumerate(wheel_sequence):
+            num_str = str(num)
+            # Set color based on roulette convention
+            if num == 0 or num == "00":
+                base_color = 'green'
+            else:
+                if int(num) in red_numbers:
+                    base_color = 'red'
+                else:
+                    base_color = 'black'
+            
+            # Get confidence value
+            confidence = number_confidence.get(num_str, 0.05)
+            
+            # Scale size based on confidence (larger markers for higher confidence)
+            base_size = 25
+            size = base_size + (confidence * 40)  # Scale by confidence (0-1) 
+            
+            # Add to lists
+            colors.append(base_color)
+            sizes.append(size)
+            hover_texts.append(f"Number: {num}<br>Confidence: {confidence:.2%}")
+        
+        # Create scatter plot
+        fig.add_trace(go.Scatter(
+            x=x_coords,
+            y=y_coords,
+            mode='markers+text',
+            marker=dict(
+                size=sizes,
+                color=colors,
+                line=dict(width=2, color='white')
+            ),
+            text=[str(num) for num in wheel_sequence],
+            textfont=dict(size=10, color='white'),
             hoverinfo='text',
-            text=hover_text,
-            colorscale=colorscale,
-            showscale=True,
-            zmin=0,
-            zmax=1
+            hovertext=hover_texts
         ))
         
-        # Add annotations (numbers)
-        fig.update_layout(annotations=annotations)
+        # Add a legend explaining the confidence levels
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            marker=dict(
+                size=25,
+                color='rgba(200, 200, 200, 0.5)'
+            ),
+            name='Low Confidence'
+        ))
         
-        # Update layout
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            marker=dict(
+                size=45,
+                color='rgba(200, 200, 200, 0.5)'
+            ),
+            name='Medium Confidence'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=[None],
+            y=[None],
+            mode='markers',
+            marker=dict(
+                size=65,
+                color='rgba(200, 200, 200, 0.5)'
+            ),
+            name='High Confidence'
+        ))
+        
+        # Update layout to make it circular
         fig.update_layout(
-            title="Personalized Betting Strategy Heatmap",
+            title="Personalized Betting Strategy Wheel",
             xaxis=dict(
-                tickmode='array',
-                tickvals=list(range(len(x_labels))),
-                ticktext=x_labels,
-                title=""
+                range=[-1.5, 1.5],
+                zeroline=False,
+                showgrid=False,
+                showticklabels=False
             ),
             yaxis=dict(
-                tickmode='array',
-                tickvals=list(range(len(y_labels))),
-                ticktext=y_labels,
-                title=""
+                range=[-1.5, 1.5],
+                zeroline=False,
+                showgrid=False,
+                showticklabels=False,
+                scaleanchor="x",
+                scaleratio=1
+            ),
+            showlegend=True,
+            legend=dict(
+                title="Confidence Levels",
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01
             ),
             height=500,
-            width=800,
+            width=600,
             margin=dict(t=50, b=50, l=50, r=50)
         )
         
-        # Add a color bar title
-        fig.update_layout(
-            coloraxis_colorbar=dict(
-                title="Confidence",
-                tickvals=[0, 0.25, 0.5, 0.75, 1.0],
-                ticktext=["Very Low", "Low", "Medium", "High", "Very High"]
-            )
+        # Add descriptive annotation
+        fig.add_annotation(
+            x=0,
+            y=-1.3,
+            text="Larger circles = Higher confidence numbers",
+            showarrow=False,
+            font=dict(size=14)
         )
         
         return fig
