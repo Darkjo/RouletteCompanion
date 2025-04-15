@@ -1047,7 +1047,11 @@ with tab4:
                             st.markdown(f"**Column:** {specific_recommendations['columns']['recommendation']}")
                         
                         if specific_recommendations["dozens"]["recommendation"]:
-                            st.markdown(f"**Dozen:** {specific_recommendations['dozens']['recommendation']}")
+                            dozen_rec = specific_recommendations['dozens']['recommendation']
+                            st.markdown(f"**Dozen:** {dozen_rec}")
+                            # Display pattern info if available
+                            if "pattern_info" in specific_recommendations['dozens'] and specific_recommendations['dozens']['pattern_info']:
+                                st.markdown(f"*{specific_recommendations['dozens']['pattern_info']}*")
                             
                         # Indicate if using fast mode
                         time.sleep(0.1)  # Final animation delay
@@ -1138,9 +1142,24 @@ with tab4:
                 if specific_recommendations["dozens"]["recommendation"]:
                     dozen_data = specific_recommendations["dozens"]
                     st.markdown(f"**Recommendation: {dozen_data['recommendation']}**")
+                    
+                    # Display counts
                     counts = dozen_data["counts"]
                     for dozen_name, count in counts.items():
                         st.markdown(f"{dozen_name}: {count} spins")
+                    
+                    # Display enhanced pattern information if available
+                    if "pattern_detected" in dozen_data and dozen_data["pattern_detected"]:
+                        st.markdown("##### Pattern Detected:")
+                        st.markdown(f"_{dozen_data['pattern_info']}_")
+                    
+                    # Display recent hot/cold dozen information if available
+                    if "recent_hot" in dozen_data:
+                        st.markdown(f"**Recently Hot:** {dozen_data['recent_hot']}")
+                    if "recent_cold" in dozen_data:
+                        st.markdown(f"**Recently Cold:** {dozen_data['recent_cold']}")
+                    
+                    # Show confidence with visual indicator
                     confidence = dozen_data['confidence'] * 100
                     st.progress(dozen_data['confidence'], text=f"Confidence: {confidence:.0f}%")
                 else:

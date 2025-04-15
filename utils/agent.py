@@ -405,10 +405,16 @@ class RLAgent:
                     "confidence": round(column_confidence, 2)
                 }
         
-        # 3. Dozen Analysis
-        first_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and 1 <= int(num) <= 12)
-        second_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and 13 <= int(num) <= 24)
-        third_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and 25 <= int(num) <= 36)
+        # 3. Enhanced Dozens Analysis with Pattern Detection
+        # Define dozen ranges
+        first_dozen_range = range(1, 13)
+        second_dozen_range = range(13, 25)
+        third_dozen_range = range(25, 37)
+        
+        # Count occurrences in each dozen
+        first_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) in first_dozen_range)
+        second_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) in second_dozen_range)
+        third_dozen = sum(1 for num in spins_df['number'] if num.isdigit() and int(num) in third_dozen_range)
         
         dozen_counts = {
             "1st dozen (1-12)": first_dozen,
@@ -416,21 +422,90 @@ class RLAgent:
             "3rd dozen (25-36)": third_dozen
         }
         
+        # Find best dozen and create dozen sequence for pattern analysis
         best_dozen = max(dozen_counts, key=dozen_counts.get)
         max_dozen_count = dozen_counts[best_dozen]
         
+        # Analyze recent dozen patterns (last 10 spins)
+        recent_numbers = [int(num) if num.isdigit() else 0 for num in spins_df['number'].tail(10)]
+        dozen_sequence = []
+        for num in recent_numbers:
+            if num in first_dozen_range:
+                dozen_sequence.append(1)
+            elif num in second_dozen_range:
+                dozen_sequence.append(2)
+            elif num in third_dozen_range:
+                dozen_sequence.append(3)
+            else:
+                dozen_sequence.append(0)  # 0 or 00
+        
+        # Detect dozen patterns
+        dozen_patterns = {}
+        for i in range(len(dozen_sequence)-1):
+            pattern = (dozen_sequence[i], dozen_sequence[i+1])
+            if pattern in dozen_patterns:
+                dozen_patterns[pattern] += 1
+            else:
+                dozen_patterns[pattern] = 1
+        
+        # Find strongest dozen pattern
+        strongest_pattern = None
+        max_pattern_count = 0
+        for pattern, count in dozen_patterns.items():
+            if count > max_pattern_count and pattern[0] != 0 and pattern[1] != 0:  # Ignore patterns with 0
+                max_pattern_count = count
+                strongest_pattern = pattern
+        
+        # Calculate statistics
         total_dozen_spins = first_dozen + second_dozen + third_dozen
         expected_dozen_count = total_dozen_spins / 3
         
+        pattern_bonus = 0
+        pattern_info = ""
+        if strongest_pattern and max_pattern_count >= 2:
+            # Add a bonus to confidence if there's a strong pattern
+            pattern_bonus = 0.1
+            next_dozen = None
+            if dozen_sequence[-1] == strongest_pattern[0]:
+                next_dozen = strongest_pattern[1]
+                if next_dozen == 1:
+                    pattern_info = f"Pattern suggests 1st dozen may follow {strongest_pattern[0]}st/nd/rd dozen"
+                elif next_dozen == 2:
+                    pattern_info = f"Pattern suggests 2nd dozen may follow {strongest_pattern[0]}st/nd/rd dozen"
+                elif next_dozen == 3:
+                    pattern_info = f"Pattern suggests 3rd dozen may follow {strongest_pattern[0]}st/nd/rd dozen"
+        
+        # Calculate confidence with enhanced metrics
         if total_dozen_spins > 0:
+            # Base confidence on statistical deviation
             dozen_deviation = max_dozen_count / expected_dozen_count
-            dozen_confidence = min(0.9, (dozen_deviation - 1) * 1.5)
             
+            # More spins = more confidence in the pattern
+            spin_count_factor = min(0.2, total_dozen_spins / 100)
+            
+            # Calculate final confidence with bonuses
+            dozen_confidence = min(0.95, (dozen_deviation - 1) * 1.5 + pattern_bonus + spin_count_factor)
+            
+            # Add recently hot/cold dozen analysis
+            recent_dozen_counts = {
+                "1st dozen": sum(1 for d in dozen_sequence if d == 1),
+                "2nd dozen": sum(1 for d in dozen_sequence if d == 2),
+                "3rd dozen": sum(1 for d in dozen_sequence if d == 3)
+            }
+            
+            recent_hot_dozen = max(recent_dozen_counts, key=recent_dozen_counts.get)
+            recent_cold_dozen = min(recent_dozen_counts, key=recent_dozen_counts.get)
+            
+            # Only recommend if confidence is high enough
             if dozen_confidence > 0.2:
                 result["dozens"] = {
                     "recommendation": best_dozen,
                     "counts": dozen_counts,
-                    "confidence": round(dozen_confidence, 2)
+                    "confidence": round(dozen_confidence, 2),
+                    "recent_hot": recent_hot_dozen,
+                    "recent_cold": recent_cold_dozen,
+                    "pattern_detected": bool(strongest_pattern),
+                    "pattern_info": pattern_info
                 }
         
         # 4. Red/Black Analysis
