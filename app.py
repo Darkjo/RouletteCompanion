@@ -384,13 +384,13 @@ with tab2:
             st.write(high_low_trend)
             
         elif analysis_option == "Wheel Bias Detection":
-            st.subheader("Wheel Bias Detection Analysis")
+            st.subheader("Wheel Bias Detection Analysis (Fast Mode)")
             
             # Get current roulette type
             current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
             
             # Display information about the minimum spins required
-            st.info("**Wheel Bias Detection** requires at least 300 spins for reliable results. More spins provide more accurate analysis.")
+            st.info("**Wheel Bias Detection** requires at least 300 spins for reliable results.")
             
             # Show current spin count
             st.write(f"Current number of spins: **{len(spins_df)}**")
@@ -398,11 +398,12 @@ with tab2:
             if len(spins_df) < 50:
                 st.warning("You need more spins for any meaningful bias detection. Please add at least 50 spins to see preliminary results.")
             else:
-                # Perform the wheel bias analysis
+                # Perform the wheel bias analysis in fast mode for 8-second window
                 bias_results = st.session_state.wheel_bias_detector.analyze_wheel_bias(
                     spins_df, 
                     current_roulette_type,
-                    min_spins=50  # Lowered for demo, but will show confidence appropriately
+                    min_spins=50,
+                    fast_mode=True  # Enable fast mode for performance optimization
                 )
                 
                 # Display the results
@@ -416,92 +417,21 @@ with tab2:
                 st.write(f"**Overall Confidence:** {bias_results['bias_confidence']:.2%}")
                 st.write(f"**Message:** {bias_results['message']}")
                 
-                # Chi-square test results
-                with st.expander("Chi-Square Test Results"):
-                    chi2_results = bias_results["chi_square_test"]
-                    st.write(f"Chi-square statistic: {chi2_results['chi2_statistic']:.2f}")
-                    st.write(f"P-value: {chi2_results['p_value']:.6f}")
-                    st.write(f"Is wheel biased (statistical): {'Yes' if chi2_results['is_biased'] else 'No'}")
-                    
-                    st.write("### Top Number Deviations")
-                    for num, dev in chi2_results['top_deviations']:
-                        deviation_color = "red" if abs(dev) > 100 else "orange" if abs(dev) > 50 else "black"
-                        st.write(f"Number {num}: <span style='color:{deviation_color}'>{dev:.1f}%</span> from expected", unsafe_allow_html=True)
-                
-                # Sector bias results
-                with st.expander("Sector Bias Analysis"):
-                    sector_bias = bias_results["sector_bias"]
-                    st.write(f"Quadrant analysis p-value: {sector_bias['p_value']:.6f}")
-                    st.write(f"Is sector biased: {'Yes' if sector_bias['is_biased'] else 'No'}")
-                    
-                    st.write("### Quadrant Deviations")
-                    for quadrant, data in sector_bias['quadrant_deviations'].items():
-                        st.write(f"{quadrant}: {data['deviation_pct']:.1f}% from expected")
-                    
-                    # Show diamond analysis for European wheels
-                    if sector_bias["diamond_analysis"]:
-                        st.write("### Diamond Sector Analysis")
-                        diamond = sector_bias["diamond_analysis"]
-                        st.write(f"Diamond sector p-value: {diamond['p_value']:.6f}")
-                        st.write(f"Is diamond sector biased: {'Yes' if diamond['is_biased'] else 'No'}")
-                        
-                        for sector, data in diamond['sector_deviations'].items():
-                            st.write(f"{sector}: {data['deviation_pct']:.1f}% from expected")
-                
-                # Frequency deviation details
-                with st.expander("Number Frequency Analysis"):
-                    freq = bias_results["frequency_deviation"]
-                    st.write(f"Significant deviations: {freq['significant_percentage']:.1f}% of numbers")
-                    st.write(f"Is frequency biased: {'Yes' if freq['is_biased'] else 'No'}")
-                    
-                    st.write("### Top Individual Number Deviations")
-                    for num, data in freq['top_deviations'][:10]:
-                        sig_text = " (Statistically Significant)" if data['is_significant'] else ""
-                        st.write(f"Number {num}: {data['deviation_pct']:.1f}% from expected, Z-score: {data['z_score']:.2f}{sig_text}")
-                
-                # Neighbor pattern analysis
-                with st.expander("Neighbor Pattern Analysis"):
-                    neighbors = bias_results["neighbor_patterns"]
-                    st.write(f"Has neighbor patterns: {'Yes' if neighbors['has_pattern'] else 'No'}")
-                    
-                    if neighbors['has_pattern']:
-                        st.write("### Significant Distance Patterns")
-                        for distance in neighbors['significant_distances']:
-                            data = neighbors['distance_analysis'][distance]
-                            st.write(f"Distance {distance}: {data['deviation_pct']:.1f}% from expected, p-value: {data['p_value']:.6f}")
-                    else:
-                        st.write("No significant neighbor patterns detected.")
-                
                 # Betting recommendations based on detected bias
                 if bias_results["bias_confidence"] > 0.1:  # Show recommendations if there's at least some confidence
                     st.write("### Betting Recommendations Based on Wheel Bias")
                     
                     recommendations = bias_results["recommendations"]
                     
-                    # Display single number recommendations
+                    # Display single number recommendations only (simplified for performance)
                     if recommendations["single_numbers"]:
-                        st.write("#### Recommended Single Numbers:")
-                        for num_data in recommendations["single_numbers"]:
+                        st.write("#### Top Recommended Numbers:")
+                        # Limit to top 3 for better performance
+                        for num_data in recommendations["single_numbers"][:3]:
                             st.write(f"Number {num_data['number']}: {num_data['deviation_pct']:.1f}% deviation, {num_data['confidence']:.2%} confidence")
                     
-                    # Display sector recommendations
-                    if recommendations["sectors"]:
-                        st.write("#### Recommended Sectors:")
-                        for sector_data in recommendations["sectors"]:
-                            if "numbers" in sector_data:
-                                st.write(f"{sector_data['sector']}: {sector_data['deviation_pct']:.1f}% deviation, {sector_data['confidence']:.2%} confidence")
-                                st.write(f"   Numbers: {', '.join(map(str, sector_data['numbers']))}")
-                            else:
-                                st.write(f"{sector_data['sector']}: {sector_data['deviation_pct']:.1f}% deviation, {sector_data['confidence']:.2%} confidence")
-                    
-                    # Display pattern recommendations
-                    if recommendations["patterns"]:
-                        st.write("#### Recommended Pattern Strategies:")
-                        for pattern_data in recommendations["patterns"]:
-                            st.write(f"{pattern_data['description']}: {pattern_data['deviation_pct']:.1f}% deviation, {pattern_data['confidence']:.2%} confidence")
-                    
                     # Display overall strategy recommendation
-                    st.write("#### Overall Strategy Recommendation:")
+                    st.write("#### Overall Strategy:")
                     st.write(recommendations["overall_strategy"])
                 else:
                     st.info("No significant bias detected to generate betting recommendations.")
