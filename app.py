@@ -129,6 +129,27 @@ with st.sidebar:
         index=st.session_state.sessions.index(st.session_state.current_session)
     )
     
+    # Reset current session button with warning
+    reset_col1, reset_col2 = st.columns([1, 1])
+    with reset_col1:
+        reset_session = st.button("🔄 Reset Session Data", type="primary", 
+                                help="Clear all spin data for the current session")
+    with reset_col2:
+        confirm_reset = st.checkbox("Confirm Reset", 
+                                  help="Check this to confirm you want to delete all data")
+    
+    if reset_session and confirm_reset:
+        # Clear all spin history for the current session
+        st.session_state.roulette_data.clear_spin_history(st.session_state.current_session)
+        
+        # Reset the agent's state as well
+        if hasattr(st.session_state, "agent"):
+            st.session_state.agent.reset()
+            
+        st.success(f"Reset complete! All data for '{st.session_state.current_session}' has been cleared.")
+        # Force a rerun to refresh all displays
+        st.rerun()
+    
     # Delete the current session
     if st.button("Delete Current Session") and len(st.session_state.sessions) > 1:
         session_to_delete = st.session_state.current_session
