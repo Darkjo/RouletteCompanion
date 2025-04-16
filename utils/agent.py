@@ -360,6 +360,7 @@ class RLAgent:
         return summary_list
         
     @st.cache_data(ttl=5)  # Cache for just 5 seconds to ensure fresh data while avoiding recalculation
+    @with_clean_dataframe
     def get_cached_bet_recommendations(_self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Cached version of get_specific_bet_recommendations.
@@ -388,6 +389,7 @@ class RLAgent:
             
         return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode=fast_mode)
     
+    @with_clean_dataframe
     def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Provide specific number and bet recommendations based on statistical analysis.

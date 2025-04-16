@@ -959,3 +959,167 @@ class RouletteVisualizer:
             # Adjust green intensity based on confidence
             intensity = min(255, 100 + int(155 * confidence))
             return f'rgb(0,{intensity},0)'
+            
+    @with_clean_dataframe
+    def plot_actual_vs_expected(self, comparison_df):
+        """
+        Create a visual comparison of actual vs expected frequencies.
+        
+        Args:
+            comparison_df (pd.DataFrame): DataFrame with comparison data
+            
+        Returns:
+            plotly.graph_objects.Figure: Plotly figure object
+        """
+        if comparison_df is None or comparison_df.empty:
+            # Return empty figure
+            fig = go.Figure()
+            fig.update_layout(
+                title="No comparison data available"
+            )
+            return fig
+            
+        # Create the comparison visualization
+        fig = go.Figure()
+        
+        # Add actual frequencies
+        fig.add_trace(go.Bar(
+            x=comparison_df['number'],
+            y=comparison_df['actual'],
+            name='Actual',
+            marker_color='blue'
+        ))
+        
+        # Add expected frequencies
+        fig.add_trace(go.Bar(
+            x=comparison_df['number'],
+            y=comparison_df['expected'],
+            name='Expected',
+            marker_color='gray',
+            opacity=0.7
+        ))
+        
+        # Update layout
+        fig.update_layout(
+            title_text="Actual vs Expected Frequencies",
+            xaxis_title="Number",
+            yaxis_title="Frequency",
+            barmode='group',
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        
+        return fig
+        
+    @with_clean_dataframe
+    def plot_deviations(self, comparison_df):
+        """
+        Create a visualization of deviations from expected frequencies.
+        
+        Args:
+            comparison_df (pd.DataFrame): DataFrame with comparison data
+            
+        Returns:
+            plotly.graph_objects.Figure: Plotly figure object
+        """
+        if comparison_df is None or comparison_df.empty:
+            # Return empty figure
+            fig = go.Figure()
+            fig.update_layout(
+                title="No deviation data available"
+            )
+            return fig
+            
+        # Calculate deviations
+        deviations = comparison_df['actual'] - comparison_df['expected']
+        
+        # Create the deviation visualization
+        fig = go.Figure()
+        
+        # Add deviation bars
+        fig.add_trace(go.Bar(
+            x=comparison_df['number'],
+            y=deviations,
+            marker_color=['green' if d >= 0 else 'red' for d in deviations],
+            hovertemplate='Number: %{x}<br>Deviation: %{y:.2f}<extra></extra>'
+        ))
+        
+        # Add a zero line
+        fig.add_shape(
+            type="line",
+            x0=min(comparison_df['number']),
+            y0=0,
+            x1=max(comparison_df['number']),
+            y1=0,
+            line=dict(
+                color="black",
+                width=2,
+                dash="dash",
+            )
+        )
+        
+        # Update layout
+        fig.update_layout(
+            title_text="Deviations from Expected Frequencies",
+            xaxis_title="Number",
+            yaxis_title="Deviation",
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        
+        return fig
+        
+    @with_clean_dataframe
+    def plot_bankroll_progression(self, bankroll_history):
+        """
+        Create a line chart showing the bankroll progression over time.
+        
+        Args:
+            bankroll_history (pd.DataFrame): DataFrame with bankroll history
+            
+        Returns:
+            plotly.graph_objects.Figure: Plotly figure object
+        """
+        if bankroll_history is None or bankroll_history.empty:
+            # Return empty figure
+            fig = go.Figure()
+            fig.update_layout(
+                title="No bankroll history available"
+            )
+            return fig
+            
+        # Create the progression visualization
+        fig = go.Figure()
+        
+        # Add bankroll line
+        fig.add_trace(go.Scatter(
+            x=list(range(len(bankroll_history))),
+            y=bankroll_history['amount'],
+            mode='lines+markers',
+            line=dict(color='green', width=2),
+            name='Bankroll'
+        ))
+        
+        # Add starting line
+        if len(bankroll_history) > 0:
+            start_value = bankroll_history['amount'].iloc[0]
+            fig.add_shape(
+                type="line",
+                x0=0,
+                y0=start_value,
+                x1=len(bankroll_history) - 1,
+                y1=start_value,
+                line=dict(
+                    color="gray",
+                    width=1,
+                    dash="dash",
+                )
+            )
+        
+        # Update layout
+        fig.update_layout(
+            title_text="Bankroll Progression",
+            xaxis_title="Spin Number",
+            yaxis_title="Bankroll Amount",
+            margin=dict(t=50, b=50, l=50, r=50)
+        )
+        
+        return fig
