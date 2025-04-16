@@ -979,13 +979,52 @@ class RouletteVisualizer:
             )
             return fig
             
+        # Check if required columns exist
+        required_columns = ['number']
+        actual_columns = ['actual_count', 'actual']  # Check for either column
+        expected_columns = ['expected_count', 'expected']  # Check for either column
+        
+        # Check if at least one of the actual/expected column variants exists
+        has_actual = any(col in comparison_df.columns for col in actual_columns)
+        has_expected = any(col in comparison_df.columns for col in expected_columns)
+        
+        # Get the actual column names that exist
+        actual_col = next((col for col in actual_columns if col in comparison_df.columns), None)
+        expected_col = next((col for col in expected_columns if col in comparison_df.columns), None)
+        
+        missing_data = []
+        if 'number' not in comparison_df.columns:
+            missing_data.append('number')
+        if not has_actual:
+            missing_data.append('actual_count or actual')
+        if not has_expected:
+            missing_data.append('expected_count or expected')
+        
+        if missing_data:
+            # Return informative figure about missing columns
+            fig = go.Figure()
+            fig.update_layout(
+                title=f"Missing required columns: {', '.join(missing_data)}",
+                annotations=[
+                    dict(
+                        text=f"The comparison requires these column types: number, actual count, expected count",
+                        showarrow=False,
+                        xref="paper",
+                        yref="paper",
+                        x=0.5,
+                        y=0.5
+                    )
+                ]
+            )
+            return fig
+            
         # Create the comparison visualization
         fig = go.Figure()
         
         # Add actual frequencies
         fig.add_trace(go.Bar(
             x=comparison_df['number'],
-            y=comparison_df['actual'],
+            y=comparison_df[actual_col],
             name='Actual',
             marker_color='blue'
         ))
@@ -993,7 +1032,7 @@ class RouletteVisualizer:
         # Add expected frequencies
         fig.add_trace(go.Bar(
             x=comparison_df['number'],
-            y=comparison_df['expected'],
+            y=comparison_df[expected_col],
             name='Expected',
             marker_color='gray',
             opacity=0.7
@@ -1029,8 +1068,61 @@ class RouletteVisualizer:
             )
             return fig
             
-        # Calculate deviations
-        deviations = comparison_df['actual'] - comparison_df['expected']
+        # Check if required columns exist
+        required_columns = ['number']
+        
+        # First check if the dataframe already has a deviation column
+        if 'deviation' in comparison_df.columns:
+            has_deviation = True
+            deviations = comparison_df['deviation']
+        else:
+            # Otherwise check for actual/expected columns to calculate deviation
+            actual_columns = ['actual_count', 'actual']  # Check for either column
+            expected_columns = ['expected_count', 'expected']  # Check for either column
+            
+            # Check if at least one of the actual/expected column variants exists
+            has_actual = any(col in comparison_df.columns for col in actual_columns)
+            has_expected = any(col in comparison_df.columns for col in expected_columns)
+            
+            # Get the actual column names that exist
+            actual_col = next((col for col in actual_columns if col in comparison_df.columns), None)
+            expected_col = next((col for col in expected_columns if col in comparison_df.columns), None)
+            
+            has_deviation = has_actual and has_expected
+        
+        missing_data = []
+        if 'number' not in comparison_df.columns:
+            missing_data.append('number')
+        
+        if not has_deviation and 'deviation' not in comparison_df.columns:
+            if not has_actual:
+                missing_data.append('actual_count or actual')
+            if not has_expected:
+                missing_data.append('expected_count or expected')
+        
+        if missing_data:
+            # Return informative figure about missing columns
+            fig = go.Figure()
+            fig.update_layout(
+                title=f"Missing required columns: {', '.join(missing_data)}",
+                annotations=[
+                    dict(
+                        text=f"The deviation plot requires either a 'deviation' column or both actual and expected count columns",
+                        showarrow=False,
+                        xref="paper",
+                        yref="paper",
+                        x=0.5,
+                        y=0.5
+                    )
+                ]
+            )
+            return fig
+            
+        # Calculate deviations if not already present
+        if 'deviation' not in comparison_df.columns:
+            deviations = comparison_df[actual_col] - comparison_df[expected_col]
+        else:
+            deviations = comparison_df['deviation']
         
         # Create the deviation visualization
         fig = go.Figure()
@@ -1083,6 +1175,25 @@ class RouletteVisualizer:
             fig = go.Figure()
             fig.update_layout(
                 title="No bankroll history available"
+            )
+            return fig
+            
+        # Check if required column exists
+        if 'amount' not in bankroll_history.columns:
+            # Return informative figure about missing column
+            fig = go.Figure()
+            fig.update_layout(
+                title="Missing required column: amount",
+                annotations=[
+                    dict(
+                        text="The bankroll progression plot requires the 'amount' column",
+                        showarrow=False,
+                        xref="paper",
+                        yref="paper",
+                        x=0.5,
+                        y=0.5
+                    )
+                ]
             )
             return fig
             
