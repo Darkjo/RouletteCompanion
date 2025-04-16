@@ -22,6 +22,7 @@ from utils.quick_input_optimized import add_floating_quick_input  # Using the op
 from utils.live_casino_input import create_live_casino_panel
 from utils.wheel_bias import WheelBiasDetector
 from utils.web_scraper import create_web_scraper_ui
+from utils.dataframe_converter import clean_dataframe_for_analysis  # Import the new converter
 
 # Set page configuration
 st.set_page_config(
@@ -248,7 +249,10 @@ with dashboard_col3:
     st.metric("Recommended Bet", f"${rec_bet_size:.2f}")
     
     # Get recommended strategy based on current analysis
-    spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    raw_spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+    # Clean the dataframe to extract properties (prevents unhashable type errors)
+    spins_df = clean_dataframe_for_analysis(raw_spins_df)
+    
     if spins_df is not None and not spins_df.empty and len(spins_df) > 10:
         rec_strategy = st.session_state.agent.get_recommendation(st.session_state.bankroll)
         st.success(f"Suggested Strategy: **{rec_strategy}**")
