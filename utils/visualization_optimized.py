@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from utils.dataframe_converter import with_clean_dataframe
 
 class RouletteVisualizer:
     """
@@ -11,6 +12,8 @@ class RouletteVisualizer:
     Optimized to work with nested property dictionaries.
     """
     
+    @with_clean_dataframe
+    @with_clean_dataframe
     def plot_recent_spins(self, spins_df, roulette_type):
         """
         Create a visual representation of recent spin results.
@@ -114,6 +117,8 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
+    @with_clean_dataframe
     def plot_number_frequency(self, spins_df, roulette_type):
         """
         Create a bar chart showing the frequency of each number.
@@ -209,6 +214,8 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
+    @with_clean_dataframe
     def plot_even_odd_distribution(self, spins_df):
         """
         Create a pie chart showing the distribution of even vs odd numbers.
@@ -316,6 +323,8 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
+    @with_clean_dataframe
     def plot_red_black_distribution(self, spins_df):
         """
         Create a pie chart showing the distribution of red vs black numbers.
@@ -410,6 +419,7 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
     def plot_dozens_distribution(self, spins_df):
         """
         Create a bar chart showing the distribution of dozens.
@@ -488,6 +498,7 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
     def plot_columns_distribution(self, spins_df):
         """
         Create a bar chart showing the distribution of columns.
@@ -566,6 +577,7 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
     def plot_high_low_distribution(self, spins_df):
         """
         Create a pie chart showing the distribution of high vs low numbers.
@@ -805,6 +817,7 @@ class RouletteVisualizer:
         
         return fig
     
+    @with_clean_dataframe
     def plot_betting_strategy_heatmap(self, spins_df, roulette_type, bet_recommendations):
         """
         Create a heatmap visualization for betting strategy recommendations.

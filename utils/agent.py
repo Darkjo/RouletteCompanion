@@ -7,7 +7,10 @@ Performance optimizations added:
 - Progress indicators for long-running operations
 - Batch processing for large datasets
 - Real-time adaptation for 8-second decision window
+- Automatic dataframe cleaning for nested properties
 """
+
+from utils.dataframe_converter import with_clean_dataframe
 
 import random
 import pandas as pd
