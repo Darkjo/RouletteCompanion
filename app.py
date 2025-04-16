@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
+from utils.advanced_betting import AdvancedBettingAnalysis
 from datetime import datetime, timedelta
 import json
 import os
@@ -57,6 +58,9 @@ if 'strategy_engine' not in st.session_state:
     
 if 'wheel_bias_detector' not in st.session_state:
     st.session_state.wheel_bias_detector = WheelBiasDetector()
+    
+if 'advanced_betting' not in st.session_state:
+    st.session_state.advanced_betting = AdvancedBettingAnalysis()
     
 if 'bankroll' not in st.session_state:
     st.session_state.bankroll = 100.0
