@@ -869,7 +869,16 @@ with main_tab3:
 
 # Add Advanced Strategy section to the Betting Strategies tab
 with main_tab3:
-    st.subheader("🧠 Advanced Strategy Agent")
+    # Create tabs for different strategy sections
+    strategy_tab1, strategy_tab2, strategy_tab3, strategy_tab4 = st.tabs([
+        "🧠 Strategy Agent", 
+        "🎯 Advanced Betting", 
+        "🔄 Progression Systems",
+        "🗺️ Wheel Visualization"
+    ])
+    
+    with strategy_tab1:
+        st.subheader("🧠 Advanced Strategy Agent")
     
     # Add a sample data generator for testing the recommendation system
     with st.expander("Test Data Generator (For Development)"):
@@ -1842,3 +1851,543 @@ with main_tab2:
     
     else:
         st.info("No spin data available for statistics. Please add spins in the Spin Tracker tab.")
+        
+    # Advanced Betting Tab
+    with strategy_tab2:
+        st.subheader("🎯 Advanced Betting Analysis")
+        
+        st.write("""
+        This section provides sophisticated betting analysis that goes beyond basic strategies, 
+        looking for patterns based on wheel physics, sector betting, and advanced statistical models.
+        """)
+        
+        # Check if we have spin data
+        spins_df = clean_dataframe_for_analysis(st.session_state.roulette_data.get_session_data(st.session_state.current_session))
+        current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+        
+        if spins_df is not None and not spins_df.empty and len(spins_df) >= 20:
+            # Create tabs for different advanced betting analyses
+            advanced_tabs = st.tabs([
+                "Sector Betting", 
+                "Split & Corner Bets",
+                "Sleeper Numbers",
+                "Wheel Bias"
+            ])
+            
+            # Sector Betting Analysis
+            with advanced_tabs[0]:
+                st.subheader("🔄 Sector Betting Analysis")
+                
+                st.write("""
+                Sector betting focuses on groups of numbers based on their physical arrangement 
+                on the roulette wheel rather than their position on the betting table.
+                
+                This approach can help identify wheel bias or physical imperfections that may
+                cause certain sectors to come up more frequently.
+                """)
+                
+                # Get sector analysis
+                sector_analysis = st.session_state.advanced_betting.analyze_sectors(
+                    spins_df, current_roulette_type
+                )
+                
+                if sector_analysis and "sectors" in sector_analysis:
+                    sectors = sector_analysis["sectors"]
+                    if sectors:
+                        # Create metrics for each sector
+                        st.subheader("Wheel Sector Performance")
+                        
+                        sector_cols = st.columns(3)
+                        for i, (sector_name, data) in enumerate(sectors.items()):
+                            with sector_cols[i % 3]:
+                                # Format sector name for display
+                                display_name = sector_name.replace("_", " ").title()
+                                
+                                # Calculate hit percentage and expected percentage
+                                hit_pct = data.get("hit_percentage", 0)
+                                expected_pct = (len(data.get("numbers", [])) / (37 if current_roulette_type == "European" else 38)) * 100
+                                
+                                # Calculate delta
+                                delta = hit_pct - expected_pct
+                                
+                                # Display metric with delta
+                                st.metric(
+                                    f"{display_name}",
+                                    f"{hit_pct:.1f}%",
+                                    f"{delta:.1f}%" if abs(delta) > 1.0 else "Normal",
+                                    delta_color="normal" if abs(delta) <= 1.0 else "off" if delta < 0 else "inverse"
+                                )
+                                
+                                # Show recommendation
+                                recommendation = data.get("recommendation", "NEUTRAL")
+                                if recommendation == "BET":
+                                    st.success(f"✅ Recommended: **{delta:.1f}%** above expected")
+                                elif recommendation == "AVOID":
+                                    st.error(f"❌ Avoid: **{abs(delta):.1f}%** below expected")
+                                else:
+                                    st.info("✓ Normal performance")
+                        
+                        # Create detailed table of sector statistics
+                        st.subheader("Detailed Sector Statistics")
+                        
+                        # Prepare data for the table
+                        sector_stats = []
+                        for sector_name, data in sectors.items():
+                            sector_stats.append({
+                                "Sector": sector_name.replace("_", " ").title(),
+                                "Numbers": ", ".join(str(n) for n in data.get("numbers", [])[:8]) + 
+                                           ("..." if len(data.get("numbers", [])) > 8 else ""),
+                                "Count": data.get("hits", 0),
+                                "Hit %": f"{data.get('hit_percentage', 0):.1f}%",
+                                "Expected %": f"{(len(data.get('numbers', [])) / (37 if current_roulette_type == 'European' else 38)) * 100:.1f}%",
+                                "Deviation": f"{data.get('deviation', 0):.2f}",
+                                "Significant": "Yes" if data.get("significant_bias", False) else "No",
+                                "Recommendation": data.get("recommendation", "NEUTRAL")
+                            })
+                        
+                        # Convert to DataFrame for display
+                        sector_df = pd.DataFrame(sector_stats)
+                        st.dataframe(sector_df, use_container_width=True)
+                        
+                        # Show the top recommendation
+                        best_sector = None
+                        best_confidence = 0
+                        for sector_name, data in sectors.items():
+                            if data.get("recommendation", "") == "BET" and data.get("confidence", 0) > best_confidence:
+                                best_sector = sector_name
+                                best_confidence = data.get("confidence", 0)
+                        
+                        if best_sector:
+                            st.success(f"### Top Recommendation: Bet on {best_sector.replace('_', ' ').title()}")
+                            st.write(f"Confidence: {best_confidence * 100:.1f}%")
+                            
+                            # Show the specific numbers in this sector
+                            numbers = sectors[best_sector].get("numbers", [])
+                            if numbers:
+                                number_str = ", ".join(str(n) for n in sorted(numbers))
+                                st.write(f"Numbers in this sector: {number_str}")
+                    else:
+                        st.info("No significant sector patterns detected in your data.")
+                else:
+                    st.warning("Unable to perform sector analysis. Please ensure you have sufficient spin data.")
+            
+            # Split & Corner Bets Analysis
+            with advanced_tabs[1]:
+                st.subheader("🎲 Split & Corner Bet Opportunities")
+                
+                st.write("""
+                Split bets (two adjacent numbers) and corner bets (four numbers in a square)
+                can offer better payouts than outside bets while still providing better odds than 
+                single number bets.
+                
+                This analysis identifies which split and corner bets show statistical bias
+                based on your spin history.
+                """)
+                
+                # Get split and corner analysis
+                bet_opportunities = st.session_state.advanced_betting.find_split_corner_opportunities(
+                    spins_df, current_roulette_type
+                )
+                
+                if bet_opportunities:
+                    # Display split bet opportunities
+                    if "split_opportunities" in bet_opportunities and bet_opportunities["split_opportunities"]:
+                        st.subheader("Split Bet Opportunities (Pays 17:1)")
+                        
+                        # Create a clean table of opportunities
+                        split_data = []
+                        for opp in bet_opportunities["split_opportunities"]:
+                            split_data.append({
+                                "Numbers": " & ".join(str(n) for n in opp.get("numbers", [])),
+                                "Hit Count": opp.get("combined_hits", 0),
+                                "Observed %": f"{opp.get('observed_probability', 0) * 100:.2f}%",
+                                "Expected %": f"{opp.get('expected_probability', 0) * 100:.2f}%",
+                                "Deviation": f"{opp.get('deviation_factor', 1):.2f}x",
+                                "Confidence": f"{opp.get('confidence', 0) * 100:.1f}%"
+                            })
+                        
+                        # Display as DataFrame
+                        split_df = pd.DataFrame(split_data)
+                        st.dataframe(split_df, use_container_width=True)
+                        
+                        # Show the top split bet recommendation
+                        if split_data:
+                            top_split = bet_opportunities["split_opportunities"][0]
+                            numbers = top_split.get("numbers", [])
+                            confidence = top_split.get("confidence", 0)
+                            
+                            if numbers and confidence > 0.2:
+                                st.success(f"### Top Split Bet: {' & '.join(str(n) for n in numbers)}")
+                                st.write(f"Confidence: {confidence * 100:.1f}%")
+                                st.write(f"This split appears {top_split.get('deviation_factor', 1):.2f}x more often than expected")
+                    else:
+                        st.info("No significant split bet opportunities detected.")
+                    
+                    # Display corner bet opportunities
+                    if "corner_opportunities" in bet_opportunities and bet_opportunities["corner_opportunities"]:
+                        st.subheader("Corner Bet Opportunities (Pays 8:1)")
+                        
+                        # Create a clean table of opportunities
+                        corner_data = []
+                        for opp in bet_opportunities["corner_opportunities"]:
+                            corner_data.append({
+                                "Numbers": ", ".join(str(n) for n in opp.get("numbers", [])),
+                                "Hit Count": opp.get("combined_hits", 0),
+                                "Observed %": f"{opp.get('observed_probability', 0) * 100:.2f}%",
+                                "Expected %": f"{opp.get('expected_probability', 0) * 100:.2f}%",
+                                "Deviation": f"{opp.get('deviation_factor', 1):.2f}x",
+                                "Confidence": f"{opp.get('confidence', 0) * 100:.1f}%"
+                            })
+                        
+                        # Display as DataFrame
+                        corner_df = pd.DataFrame(corner_data)
+                        st.dataframe(corner_df, use_container_width=True)
+                        
+                        # Show the top corner bet recommendation
+                        if corner_data:
+                            top_corner = bet_opportunities["corner_opportunities"][0]
+                            numbers = top_corner.get("numbers", [])
+                            confidence = top_corner.get("confidence", 0)
+                            
+                            if numbers and confidence > 0.2:
+                                st.success(f"### Top Corner Bet: {', '.join(str(n) for n in numbers)}")
+                                st.write(f"Confidence: {confidence * 100:.1f}%")
+                                st.write(f"This corner appears {top_corner.get('deviation_factor', 1):.2f}x more often than expected")
+                    else:
+                        st.info("No significant corner bet opportunities detected.")
+                else:
+                    st.warning("Unable to analyze split and corner bets. Please ensure you have sufficient spin data.")
+            
+            # Sleeper Numbers Analysis
+            with advanced_tabs[2]:
+                st.subheader("💤 Sleeper Number Analysis")
+                
+                st.write("""
+                Sleeper numbers are those that haven't appeared for a statistically unusual period.
+                While every spin is independent, tracking sleepers can help identify potential biases
+                in the wheel or unusual patterns.
+                """)
+                
+                # Controls for sleeper analysis
+                col1, col2 = st.columns(2)
+                with col1:
+                    min_absence = st.slider("Minimum Spins Absent", 10, 50, 20, 
+                                           help="Minimum number of spins a number must be absent to be considered a sleeper")
+                
+                # Get sleeper analysis
+                sleeper_analysis = st.session_state.advanced_betting.get_sleeper_numbers(
+                    spins_df, current_roulette_type, min_absence_threshold=min_absence
+                )
+                
+                if sleeper_analysis and "sleepers" in sleeper_analysis:
+                    sleepers = sleeper_analysis["sleepers"]
+                    if sleepers:
+                        # Show sleeper metrics
+                        st.subheader("Top Sleeper Numbers")
+                        
+                        # Create metrics for top sleepers
+                        sleeper_cols = st.columns(min(3, len(sleepers)))
+                        for i, sleeper in enumerate(sleepers[:3]):
+                            with sleeper_cols[i]:
+                                number = sleeper.get("number", "")
+                                absent = sleeper.get("spins_absent", 0)
+                                expected = sleeper.get("expected_gap", 0)
+                                overdue = sleeper.get("overdue_factor", 0)
+                                
+                                st.metric(
+                                    f"Number {number}",
+                                    f"{absent} spins",
+                                    f"{overdue:.1f}x overdue"
+                                )
+                        
+                        # Create detailed table of sleepers
+                        st.subheader("All Sleeper Numbers")
+                        
+                        # Prepare data for the table
+                        sleeper_data = []
+                        for sleeper in sleepers:
+                            sleeper_data.append({
+                                "Number": sleeper.get("number", ""),
+                                "Spins Absent": sleeper.get("spins_absent", 0),
+                                "Expected Gap": f"{sleeper.get('expected_gap', 0):.1f} spins",
+                                "Overdue Factor": f"{sleeper.get('overdue_factor', 0):.2f}x",
+                                "Last Seen": sleeper.get("last_position", "Unknown")
+                            })
+                        
+                        # Convert to DataFrame for display
+                        sleeper_df = pd.DataFrame(sleeper_data)
+                        st.dataframe(sleeper_df, use_container_width=True)
+                        
+                        # Show betting recommendations for sleepers
+                        st.subheader("Sleeper Betting Strategy")
+                        
+                        if len(sleepers) >= 3:
+                            # Calculate optimal coverage based on overdue factors
+                            total_overdue = sum(s.get("overdue_factor", 0) for s in sleepers)
+                            allocations = []
+                            
+                            for sleeper in sleepers:
+                                number = sleeper.get("number", "")
+                                overdue = sleeper.get("overdue_factor", 0)
+                                weight = overdue / total_overdue if total_overdue > 0 else 0
+                                allocations.append({
+                                    "number": number,
+                                    "weight": weight,
+                                    "overdue": overdue
+                                })
+                            
+                            # Sort by weight
+                            allocations.sort(key=lambda x: x["weight"], reverse=True)
+                            
+                            # Show allocation recommendation
+                            st.write("""
+                            **Betting Strategy for Sleeper Numbers:**
+                            
+                            If you want to bet on sleeper numbers, consider allocating your bet amount
+                            according to how overdue each number is. Here's a suggested allocation:
+                            """)
+                            
+                            # Display as a progress bar
+                            for alloc in allocations[:5]:  # Top 5
+                                number = alloc["number"]
+                                weight = alloc["weight"]
+                                pct = weight * 100
+                                
+                                st.write(f"Number **{number}**: {pct:.1f}% of your sleeper number bet")
+                                st.progress(weight)
+                            
+                            # Warning about gambler's fallacy
+                            st.warning("""
+                            **Note**: Be aware of the Gambler's Fallacy. Each spin is independent,
+                            and previous results don't influence future spins on a fair wheel.
+                            This strategy is best used only when you suspect physical wheel bias.
+                            """)
+                        else:
+                            st.info("No significant sleeper numbers detected with current threshold.")
+                    else:
+                        st.info(f"No numbers have been absent for {min_absence} or more spins.")
+                else:
+                    st.warning("Unable to perform sleeper analysis. Please ensure you have sufficient spin data.")
+                    
+            # Wheel Bias Analysis
+            with advanced_tabs[3]:
+                st.subheader("🎡 Wheel Bias Heatmap")
+                
+                st.write("""
+                This visualization shows the physical roulette wheel layout with colors indicating
+                which numbers are appearing more frequently (hot) or less frequently (cold) than expected.
+                
+                A properly balanced wheel should show a mostly uniform distribution over time.
+                Persistent patterns may indicate physical bias in the wheel.
+                """)
+                
+                # Generate wheel heatmap
+                heatmap_fig = st.session_state.advanced_betting.create_wheel_heatmap(
+                    spins_df, current_roulette_type
+                )
+                
+                # Display the heatmap
+                st.plotly_chart(heatmap_fig, use_container_width=True)
+                
+                # Proximity analysis
+                st.subheader("Physical Proximity Analysis")
+                
+                st.write("""
+                This analysis examines if there are patterns in the physical distance between
+                consecutive numbers on the wheel. In a truly random wheel, there should be
+                no correlation between consecutive spins.
+                """)
+                
+                # Get proximity analysis
+                proximity_analysis = st.session_state.advanced_betting.proximity_analysis(
+                    spins_df, current_roulette_type
+                )
+                
+                if proximity_analysis and "proximity_patterns" in proximity_analysis:
+                    patterns = proximity_analysis["proximity_patterns"]
+                    if patterns:
+                        # Show proximity metrics
+                        st.subheader("Physical Wheel Distance Patterns")
+                        
+                        # Create table of patterns
+                        pattern_data = []
+                        for pattern in patterns:
+                            pattern_data.append({
+                                "Distance": pattern.get("distance", 0),
+                                "Observed": pattern.get("frequency", 0),
+                                "Expected": f"{pattern.get('expected', 0):.1f}",
+                                "Deviation": f"{pattern.get('deviation', 0):.2f}",
+                                "Significance": pattern.get("significance", "Low"),
+                                "Suggests": pattern.get("suggests", "Unknown")
+                            })
+                        
+                        # Convert to DataFrame for display
+                        pattern_df = pd.DataFrame(pattern_data)
+                        st.dataframe(pattern_df, use_container_width=True)
+                        
+                        # Show the most significant pattern
+                        if patterns:
+                            top_pattern = patterns[0]
+                            distance = top_pattern.get("distance", 0)
+                            suggests = top_pattern.get("suggests", "")
+                            
+                            st.write(f"### Most Significant Pattern: Distance {distance}")
+                            st.write(f"This pattern {suggests}")
+                            
+                            # Show example pairs
+                            examples = top_pattern.get("example_pairs", [])
+                            if examples:
+                                st.write("Example number pairs at this distance:")
+                                for pair in examples:
+                                    st.write(f"- {pair[0]} and {pair[1]}")
+                    else:
+                        st.info("No significant proximity patterns detected.")
+                else:
+                    st.warning("Unable to perform proximity analysis. Please ensure you have sufficient spin data.")
+        else:
+            st.warning("Need at least 20 spins for advanced betting analysis. Please add more spins in the Data Management tab.")
+    
+    # Progression Systems Tab
+    with strategy_tab3:
+        st.subheader("🔄 Betting Progression Systems")
+        
+        st.write("""
+        Progression systems adjust your bet size based on previous results.
+        While they can't overcome the house edge, they can help manage your bankroll
+        and potentially maximize wins during hot streaks.
+        """)
+        
+        # Check if we have spin data
+        spins_df = clean_dataframe_for_analysis(st.session_state.roulette_data.get_session_data(st.session_state.current_session))
+        
+        if spins_df is not None and not spins_df.empty and len(spins_df) >= 20:
+            # Risk tolerance selection
+            risk_tolerance = st.select_slider(
+                "Risk Tolerance",
+                options=["low", "medium", "high"],
+                value="medium",
+                help="Higher risk tolerance means more aggressive betting progressions"
+            )
+            
+            # Get progression system recommendations
+            progression_rec = st.session_state.advanced_betting.get_progression_system_recommendation(
+                spins_df, st.session_state.bankroll, risk_tolerance
+            )
+            
+            if progression_rec and "progression_systems" in progression_rec:
+                systems = progression_rec["progression_systems"]
+                if systems:
+                    # Show the top recommended system
+                    top_system = systems[0]
+                    st.success(f"### Top Recommendation: {top_system.get('name', '')}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("System Score", f"{top_system.get('score', 0):.1f}/100")
+                    with col2:
+                        st.metric("Risk Level", top_system.get('risk_level', 'Unknown'))
+                    
+                    # Description and implementation
+                    st.subheader("How It Works")
+                    st.write(top_system.get("description", ""))
+                    
+                    st.subheader("Implementation")
+                    st.write(top_system.get("implementation", ""))
+                    
+                    st.subheader("Best For")
+                    st.write(top_system.get("best_for", ""))
+                    
+                    # Show all recommended systems
+                    st.subheader("All Recommended Systems")
+                    
+                    # Create table data
+                    system_data = []
+                    for system in systems:
+                        system_data.append({
+                            "System": system.get("name", ""),
+                            "Score": f"{system.get('score', 0):.1f}/100",
+                            "Risk Level": system.get("risk_level", ""),
+                            "Bankroll Req.": f"{system.get('bankroll_requirement', 0)} units",
+                            "Best For": system.get("best_for", "")
+                        })
+                    
+                    # Convert to DataFrame
+                    system_df = pd.DataFrame(system_data)
+                    st.dataframe(system_df, use_container_width=True)
+                    
+                    # Session statistics
+                    st.subheader("Current Session Statistics")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Win Rate", f"{progression_rec.get('win_rate', 0):.1f}%")
+                    with col2:
+                        st.metric("Max Win Streak", progression_rec.get("max_winning_streak", 0))
+                    with col3:
+                        st.metric("Max Loss Streak", progression_rec.get("max_losing_streak", 0))
+                else:
+                    st.info("No progression systems could be recommended based on your data.")
+            else:
+                st.warning("Unable to generate progression recommendations. Please ensure you have sufficient spin data.")
+        else:
+            st.warning("Need at least 20 spins for progression analysis. Please add more spins in the Data Management tab.")
+    
+    # Wheel Visualization Tab
+    with strategy_tab4:
+        st.subheader("🗺️ Wheel Visualization")
+        
+        st.write("""
+        This section provides a visual representation of the roulette wheel and spin results,
+        allowing you to see patterns that might not be apparent in numerical data.
+        """)
+        
+        # Check if we have spin data
+        spins_df = clean_dataframe_for_analysis(st.session_state.roulette_data.get_session_data(st.session_state.current_session))
+        current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+        
+        if spins_df is not None and not spins_df.empty:
+            # Create wheel heatmap visualization
+            wheel_fig = st.session_state.advanced_betting.create_wheel_heatmap(
+                spins_df, current_roulette_type
+            )
+            
+            # Display the wheel visualization
+            st.plotly_chart(wheel_fig, use_container_width=True)
+            
+            # Pattern cycle analysis
+            st.subheader("Pattern Cycle Analysis")
+            
+            pattern_analysis = st.session_state.advanced_betting.analyze_pattern_cycles(spins_df)
+            
+            if pattern_analysis and "patterns" in pattern_analysis:
+                patterns = pattern_analysis["patterns"]
+                if patterns:
+                    # Show pattern data
+                    pattern_data = []
+                    for pattern in patterns:
+                        pattern_data.append({
+                            "Type": pattern.get("type", "").replace("_", "/").title(),
+                            "Pattern": pattern.get("pattern", ""),
+                            "Count": pattern.get("count", 0),
+                            "Expected": f"{pattern.get('expected', 0):.1f}",
+                            "Deviation": f"{pattern.get('deviation', 0):.2f}",
+                            "Significant": "Yes" if pattern.get("significant", False) else "No"
+                        })
+                    
+                    # Convert to DataFrame
+                    pattern_df = pd.DataFrame(pattern_data)
+                    st.dataframe(pattern_df, use_container_width=True)
+                    
+                    # Show the most significant pattern
+                    if patterns:
+                        top_pattern = patterns[0]
+                        
+                        st.success(f"### Most Significant Pattern: {top_pattern.get('pattern', '')}")
+                        st.write(f"Type: {top_pattern.get('type', '').replace('_', '/').title()}")
+                        st.write(top_pattern.get('explanation', ''))
+                else:
+                    st.info("No significant pattern cycles detected in your data.")
+            else:
+                st.warning("Unable to perform pattern analysis. Please ensure you have sufficient spin data.")
+        else:
+            st.warning("Need spin data for wheel visualization. Please add spins in the Data Management tab.")
