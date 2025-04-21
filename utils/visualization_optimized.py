@@ -233,15 +233,75 @@ class RouletteVisualizer:
         Returns:
             plotly.graph_objects.Figure: Plotly figure object
         """
+        # Initialize figure
+        fig = go.Figure()
+        
         if spins_df is None or spins_df.empty:
             # Return empty figure
-            fig = go.Figure()
             fig.update_layout(
                 title="No spin data available"
             )
             return fig
         
-        # Additional implementation details here...
+        try:
+            # Filter out 0 and 00
+            filtered_df = spins_df[~spins_df['number'].isin(['0', '00'])]
+            
+            if filtered_df.empty:
+                fig.add_trace(go.Pie(
+                    labels=['No valid data'],
+                    values=[1],
+                    marker_colors=['lightgray']
+                ))
+                fig.update_layout(
+                    title="No even/odd data available (only zeros)"
+                )
+                return fig
+            
+            # Calculate even/odd counts
+            even_count = sum(1 for num in filtered_df['number'] if num.isdigit() and int(num) % 2 == 0)
+            odd_count = sum(1 for num in filtered_df['number'] if num.isdigit() and int(num) % 2 == 1)
+            
+            # Calculate percentages
+            total = even_count + odd_count
+            even_pct = even_count / total * 100 if total > 0 else 0
+            odd_pct = odd_count / total * 100 if total > 0 else 0
+            
+            # Create labels with percentages
+            labels = [f'Even: {even_count} ({even_pct:.1f}%)', f'Odd: {odd_count} ({odd_pct:.1f}%)']
+            
+            # Create the pie chart
+            fig.add_trace(go.Pie(
+                labels=labels,
+                values=[even_count, odd_count],
+                marker_colors=['#3498db', '#e74c3c'],
+                textinfo='label',
+                hole=0.3
+            ))
+            
+            # Update layout
+            fig.update_layout(
+                title="Even vs Odd Distribution",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+            
+        except Exception as e:
+            # Handle any errors gracefully
+            fig.add_trace(go.Pie(
+                labels=['Error'],
+                values=[1],
+                marker_colors=['lightgray']
+            ))
+            fig.update_layout(
+                title=f"Error: {str(e)}"
+            )
+            
         return fig
     
     @with_clean_dataframe
@@ -255,15 +315,79 @@ class RouletteVisualizer:
         Returns:
             plotly.graph_objects.Figure: Plotly figure object
         """
+        # Initialize figure
+        fig = go.Figure()
+        
         if spins_df is None or spins_df.empty:
             # Return empty figure
-            fig = go.Figure()
             fig.update_layout(
                 title="No spin data available"
             )
             return fig
         
-        # Additional implementation details here...
+        try:
+            # Filter out green numbers (0 and 00)
+            filtered_df = spins_df[~spins_df['number'].isin(['0', '00'])]
+            
+            if filtered_df.empty:
+                fig.add_trace(go.Pie(
+                    labels=['No valid data'],
+                    values=[1],
+                    marker_colors=['lightgray']
+                ))
+                fig.update_layout(
+                    title="No red/black data available (only zeros)"
+                )
+                return fig
+            
+            # Define red numbers
+            red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+            
+            # Calculate red/black counts
+            red_count = sum(1 for num in filtered_df['number'] 
+                           if num.isdigit() and int(num) in red_numbers)
+            black_count = len(filtered_df) - red_count
+            
+            # Calculate percentages
+            total = red_count + black_count
+            red_pct = red_count / total * 100 if total > 0 else 0
+            black_pct = black_count / total * 100 if total > 0 else 0
+            
+            # Create labels with percentages
+            labels = [f'Red: {red_count} ({red_pct:.1f}%)', f'Black: {black_count} ({black_pct:.1f}%)']
+            
+            # Create the pie chart
+            fig.add_trace(go.Pie(
+                labels=labels,
+                values=[red_count, black_count],
+                marker_colors=['#e74c3c', '#34495e'],
+                textinfo='label',
+                hole=0.3
+            ))
+            
+            # Update layout
+            fig.update_layout(
+                title="Red vs Black Distribution",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+            
+        except Exception as e:
+            # Handle any errors gracefully
+            fig.add_trace(go.Pie(
+                labels=['Error'],
+                values=[1],
+                marker_colors=['lightgray']
+            ))
+            fig.update_layout(
+                title=f"Error: {str(e)}"
+            )
+            
         return fig
     
     @with_clean_dataframe
@@ -481,15 +605,74 @@ class RouletteVisualizer:
         Returns:
             plotly.graph_objects.Figure: Plotly figure object
         """
+        # Initialize figure
+        fig = go.Figure()
+        
         if actual_vs_expected_df is None or actual_vs_expected_df.empty:
             # Return empty figure
-            fig = go.Figure()
             fig.update_layout(
                 title="No comparison data available"
             )
             return fig
         
-        # Additional implementation details here...
+        # Create a simple bar chart for actual vs expected comparison
+        try:
+            # If the dataframe has the right columns, create a proper comparison chart
+            if 'number' in actual_vs_expected_df.columns and 'actual' in actual_vs_expected_df.columns and 'expected' in actual_vs_expected_df.columns:
+                # Sort by number for better display
+                df_sorted = actual_vs_expected_df.sort_values(by='number')
+                
+                # Add actual frequencies
+                fig.add_trace(go.Bar(
+                    x=df_sorted['number'],
+                    y=df_sorted['actual'],
+                    name='Actual',
+                    marker_color='blue'
+                ))
+                
+                # Add expected frequencies
+                fig.add_trace(go.Bar(
+                    x=df_sorted['number'],
+                    y=df_sorted['expected'],
+                    name='Expected',
+                    marker_color='red'
+                ))
+                
+                # Update layout
+                fig.update_layout(
+                    title='Actual vs Expected Frequencies',
+                    xaxis_title='Number',
+                    yaxis_title='Frequency',
+                    barmode='group',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    )
+                )
+            else:
+                # If dataframe doesn't have expected columns, show a placeholder
+                fig.add_trace(go.Bar(
+                    x=["Data format not supported"],
+                    y=[0],
+                    marker_color="lightgray"
+                ))
+                fig.update_layout(
+                    title="Could not create comparison - data format not supported"
+                )
+        except Exception as e:
+            # Handle any errors gracefully
+            fig.add_trace(go.Bar(
+                x=["Error creating visualization"],
+                y=[0],
+                marker_color="lightgray"
+            ))
+            fig.update_layout(
+                title=f"Error: {str(e)}"
+            )
+            
         return fig
         
     @with_clean_dataframe
@@ -503,15 +686,77 @@ class RouletteVisualizer:
         Returns:
             plotly.graph_objects.Figure: Plotly figure object
         """
+        # Initialize figure
+        fig = go.Figure()
+        
         if deviations_df is None or deviations_df.empty:
             # Return empty figure
-            fig = go.Figure()
             fig.update_layout(
                 title="No deviation data available"
             )
             return fig
         
-        # Additional implementation details here...
+        # Create a visualization of deviations
+        try:
+            # If we have the expected columns, create a proper deviation chart
+            if 'number' in deviations_df.columns and 'deviation' in deviations_df.columns:
+                # Sort by number for better display
+                df_sorted = deviations_df.sort_values(by='number')
+                
+                # Add deviation bars
+                colors = ['red' if d > 0 else 'blue' for d in df_sorted['deviation']]
+                
+                fig.add_trace(go.Bar(
+                    x=df_sorted['number'],
+                    y=df_sorted['deviation'],
+                    marker_color=colors,
+                    hovertemplate='Number: %{x}<br>Deviation: %{y:.2f}<extra></extra>'
+                ))
+                
+                # Add a reference line at y=0
+                fig.add_shape(
+                    type="line",
+                    x0=0,
+                    y0=0,
+                    x1=1,
+                    y1=0,
+                    line=dict(
+                        color="black",
+                        width=2,
+                        dash="dash",
+                    ),
+                    xref="paper",
+                    yref="y"
+                )
+                
+                # Update layout
+                fig.update_layout(
+                    title='Deviations from Expected Frequencies',
+                    xaxis_title='Number',
+                    yaxis_title='Deviation',
+                    showlegend=False
+                )
+            else:
+                # If the dataframe doesn't have the expected columns, show a placeholder
+                fig.add_trace(go.Bar(
+                    x=["Data format not supported"],
+                    y=[0],
+                    marker_color="lightgray"
+                ))
+                fig.update_layout(
+                    title="Could not create deviation chart - data format not supported"
+                )
+        except Exception as e:
+            # Handle any errors gracefully
+            fig.add_trace(go.Bar(
+                x=["Error creating visualization"],
+                y=[0],
+                marker_color="lightgray"
+            ))
+            fig.update_layout(
+                title=f"Error: {str(e)}"
+            )
+            
         return fig
         
     @with_clean_dataframe
@@ -525,13 +770,91 @@ class RouletteVisualizer:
         Returns:
             plotly.graph_objects.Figure: Plotly figure object
         """
+        # Initialize figure
+        fig = go.Figure()
+        
         if not simulation_results or 'bankroll_history' not in simulation_results:
             # Return empty figure
-            fig = go.Figure()
             fig.update_layout(
                 title="No simulation data available"
             )
             return fig
         
-        # Additional implementation details here...
+        try:
+            # Extract bankroll history
+            bankroll_history = simulation_results['bankroll_history']
+            
+            # Create x-axis values (spin numbers)
+            spins = list(range(1, len(bankroll_history) + 1))
+            
+            # Create the line chart
+            fig.add_trace(go.Scatter(
+                x=spins,
+                y=bankroll_history,
+                mode='lines+markers',
+                name='Bankroll',
+                line=dict(color='green', width=2),
+                marker=dict(size=6)
+            ))
+            
+            # Add starting bankroll line
+            if 'initial_bankroll' in simulation_results:
+                initial_bankroll = simulation_results['initial_bankroll']
+                fig.add_shape(
+                    type="line",
+                    x0=0,
+                    y0=initial_bankroll,
+                    x1=len(bankroll_history),
+                    y1=initial_bankroll,
+                    line=dict(
+                        color="red",
+                        width=1,
+                        dash="dash",
+                    ),
+                )
+                fig.add_annotation(
+                    x=0,
+                    y=initial_bankroll,
+                    text="Initial Bankroll",
+                    showarrow=False,
+                    yshift=10,
+                )
+            
+            # Update layout
+            final_bankroll = bankroll_history[-1] if bankroll_history else 0
+            initial = simulation_results.get('initial_bankroll', 0)
+            profit_loss = final_bankroll - initial
+            profit_loss_str = f"+{profit_loss:.2f}" if profit_loss >= 0 else f"{profit_loss:.2f}"
+            
+            fig.update_layout(
+                title=f"Bankroll Progression: {profit_loss_str} ({len(bankroll_history)} spins)",
+                xaxis_title="Spin Number",
+                yaxis_title="Bankroll",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                hovermode="x unified"
+            )
+            
+            # Add hoverable points
+            fig.update_traces(
+                hovertemplate='Spin: %{x}<br>Bankroll: %{y:.2f}<extra></extra>'
+            )
+            
+        except Exception as e:
+            # Handle any errors gracefully
+            fig.add_trace(go.Scatter(
+                x=[0, 1],
+                y=[0, 0],
+                mode='lines',
+                line=dict(color='lightgray')
+            ))
+            fig.update_layout(
+                title=f"Error plotting bankroll progression: {str(e)}"
+            )
+        
         return fig
