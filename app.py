@@ -2188,7 +2188,7 @@ with main_tab2:
                 )
                 
                 # Display the heatmap
-                st.plotly_chart(heatmap_fig, use_container_width=True)
+                st.plotly_chart(heatmap_fig, use_container_width=True, key="wheel_bias_heatmap")
                 
                 # Proximity analysis
                 st.subheader("Physical Proximity Analysis")
@@ -2353,7 +2353,7 @@ with main_tab2:
             )
             
             # Display the wheel visualization
-            st.plotly_chart(wheel_fig, use_container_width=True)
+            st.plotly_chart(wheel_fig, use_container_width=True, key="wheel_visualization")
             
             # Pattern cycle analysis
             st.subheader("Pattern Cycle Analysis")
