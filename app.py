@@ -870,11 +870,12 @@ with main_tab3:
 # Add Advanced Strategy section to the Betting Strategies tab
 with main_tab3:
     # Create tabs for different strategy sections
-    strategy_tab1, strategy_tab2, strategy_tab3, strategy_tab4 = st.tabs([
+    strategy_tab1, strategy_tab2, strategy_tab3, strategy_tab4, strategy_tab5 = st.tabs([
         "🧠 Strategy Agent", 
         "🎯 Advanced Betting", 
         "🔄 Progression Systems",
-        "🗺️ Wheel Visualization"
+        "🗺️ Wheel Visualization",
+        "💰 Bet Simulator"
     ])
     
     with strategy_tab1:
@@ -2391,3 +2392,422 @@ with main_tab2:
                 st.warning("Unable to perform pattern analysis. Please ensure you have sufficient spin data.")
         else:
             st.warning("Need spin data for wheel visualization. Please add spins in the Data Management tab.")
+            
+    # Bet Simulator Tab
+    with strategy_tab5:
+        st.subheader("💰 Bet Simulator")
+        
+        st.write("""
+        This interactive simulator lets you place different types of bets and see how they would affect your bankroll.
+        The agent will track your wins and losses and adjust its recommendations based on your betting history.
+        """)
+        
+        # Initialize bet simulator state variables if they don't exist
+        if 'bet_simulator_bankroll' not in st.session_state:
+            st.session_state.bet_simulator_bankroll = st.session_state.bankroll
+            
+        if 'bet_history' not in st.session_state:
+            st.session_state.bet_history = []
+            
+        # Display current bankroll
+        col1, col2 = st.columns(2)
+        with col1:
+            current_simulator_bankroll = st.number_input(
+                "Simulator Bankroll ($)", 
+                min_value=5.0, 
+                value=st.session_state.bet_simulator_bankroll,
+                step=5.0
+            )
+            st.session_state.bet_simulator_bankroll = current_simulator_bankroll
+            
+        with col2:
+            reset_btn = st.button("Reset Bankroll to $100")
+            if reset_btn:
+                st.session_state.bet_simulator_bankroll = 100.0
+                st.session_state.bet_history = []
+                st.rerun()
+        
+        # Display spins data if available
+        spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
+        current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+        
+        if spins_df is not None and not spins_df.empty:
+            # Get the most recent spin for simulation
+            latest_spin = spins_df.iloc[0]['number'] if not spins_df.empty else None
+            
+            # Create betting interface
+            st.subheader("Place Your Bet")
+            
+            # Create columns for different bet types
+            bet_col1, bet_col2 = st.columns(2)
+            
+            with bet_col1:
+                bet_type = st.radio(
+                    "Bet Type",
+                    ["Straight (Single Number)", 
+                     "Red/Black", 
+                     "Even/Odd", 
+                     "1-18/19-36",
+                     "Dozen (1-12, 13-24, 25-36)",
+                     "Column",
+                     "Split (Two Numbers)",
+                     "Street (Three Numbers)",
+                     "Corner (Four Numbers)",
+                     "Six Line",
+                     "Zero/Double Zero"]
+                )
+                
+                # Set bet options based on selected type
+                if bet_type == "Straight (Single Number)":
+                    # For single number bets
+                    specific_bet = st.number_input(
+                        "Number to Bet On", 
+                        min_value=0, 
+                        max_value=36, 
+                        value=0
+                    )
+                    payout_multiplier = 35
+                    
+                elif bet_type == "Red/Black":
+                    # For red/black bets
+                    specific_bet = st.radio(
+                        "Choose Color",
+                        ["Red", "Black"]
+                    )
+                    payout_multiplier = 1
+                    
+                elif bet_type == "Even/Odd":
+                    # For even/odd bets
+                    specific_bet = st.radio(
+                        "Choose Parity",
+                        ["Even", "Odd"]
+                    )
+                    payout_multiplier = 1
+                    
+                elif bet_type == "1-18/19-36":
+                    # For high/low bets
+                    specific_bet = st.radio(
+                        "Choose Range",
+                        ["1-18 (Low)", "19-36 (High)"]
+                    )
+                    payout_multiplier = 1
+                    
+                elif bet_type == "Dozen (1-12, 13-24, 25-36)":
+                    # For dozen bets
+                    specific_bet = st.radio(
+                        "Choose Dozen",
+                        ["1st Dozen (1-12)", "2nd Dozen (13-24)", "3rd Dozen (25-36)"]
+                    )
+                    payout_multiplier = 2
+                    
+                elif bet_type == "Column":
+                    # For column bets
+                    specific_bet = st.radio(
+                        "Choose Column",
+                        ["1st Column (1,4,7,...,34)", "2nd Column (2,5,8,...,35)", "3rd Column (3,6,9,...,36)"]
+                    )
+                    payout_multiplier = 2
+                    
+                elif bet_type == "Split (Two Numbers)":
+                    # For split bets
+                    st.write("Choose two adjacent numbers")
+                    split_num1 = st.number_input("First Number", min_value=1, max_value=36, value=1)
+                    split_num2 = st.number_input("Second Number", min_value=1, max_value=36, value=2)
+                    specific_bet = f"{split_num1}/{split_num2}"
+                    payout_multiplier = 17
+                    
+                elif bet_type == "Street (Three Numbers)":
+                    # For street bets (3 numbers in a row)
+                    first_num = st.number_input("First number in row", min_value=1, max_value=34, value=1, step=3) 
+                    street_numbers = [first_num, first_num+1, first_num+2]
+                    specific_bet = f"{first_num},{first_num+1},{first_num+2}"
+                    payout_multiplier = 11
+                    
+                elif bet_type == "Corner (Four Numbers)":
+                    # For corner bets (4 numbers in a square)
+                    corner_num = st.number_input("Lower-left corner number", min_value=1, max_value=32, value=1)
+                    if corner_num % 3 == 0:  # Can't be rightmost column
+                        st.error("Cannot select rightmost column number. Please choose another number.")
+                        corner_num = corner_num - 1
+                    corner_numbers = [corner_num, corner_num+1, corner_num+3, corner_num+4]
+                    specific_bet = f"{corner_num},{corner_num+1},{corner_num+3},{corner_num+4}"
+                    payout_multiplier = 8
+                    
+                elif bet_type == "Six Line":
+                    # For six line bets (two adjacent rows)
+                    first_num = st.number_input("First number in first row", min_value=1, max_value=31, value=1, step=3)
+                    six_line_numbers = [first_num, first_num+1, first_num+2, first_num+3, first_num+4, first_num+5]
+                    specific_bet = f"{first_num}-{first_num+5}"
+                    payout_multiplier = 5
+                    
+                elif bet_type == "Zero/Double Zero":
+                    # For zero bets
+                    if current_roulette_type == "American":
+                        specific_bet = st.radio(
+                            "Choose Zero Type",
+                            ["0", "00"]
+                        )
+                    else:
+                        specific_bet = "0"
+                        st.info("European roulette only has a single zero (0).")
+                    payout_multiplier = 35
+                
+            with bet_col2:
+                # Bet amount
+                bet_amount = st.number_input(
+                    "Bet Amount ($)", 
+                    min_value=1.0, 
+                    max_value=float(st.session_state.bet_simulator_bankroll), 
+                    value=min(5.0, float(st.session_state.bet_simulator_bankroll)),
+                    step=1.0
+                )
+                
+                # Calculate potential win
+                potential_win = bet_amount * payout_multiplier
+                
+                # Show payout information
+                st.info(f"Payout: {payout_multiplier}:1")
+                st.success(f"Potential Win: ${potential_win:.2f}")
+                
+                # Show current spin
+                st.subheader("Current Spin")
+                if latest_spin is not None:
+                    # Display the number with a colored background
+                    num = latest_spin
+                    try:
+                        # Format 0 and 00 properly
+                        if num == "0" or num == "00":
+                            bg_color = "green"
+                            text_color = "white"
+                        # Format normal numbers
+                        elif int(num) in [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]:
+                            bg_color = "red"
+                            text_color = "white"
+                        else:
+                            bg_color = "black"
+                            text_color = "white"
+                        
+                        st.markdown(
+                            f'<div style="background-color:{bg_color}; color:{text_color}; padding:10px; '
+                            f'border-radius:50%; width:60px; height:60px; text-align:center; line-height:40px; '
+                            f'font-size:24px; display:flex; align-items:center; justify-content:center;">{num}</div>',
+                            unsafe_allow_html=True
+                        )
+                    except ValueError:
+                        st.write(f"Last Spin: {num}")
+                else:
+                    st.write("No spin data available")
+                
+                # Place bet button
+                if st.button("Place Bet"):
+                    # Check if we have enough in bankroll
+                    if bet_amount <= st.session_state.bet_simulator_bankroll and latest_spin is not None:
+                        # Determine if bet won
+                        won = False
+                        
+                        # Check different bet types
+                        if bet_type == "Straight (Single Number)":
+                            won = str(specific_bet) == latest_spin
+                            
+                        elif bet_type == "Red/Black":
+                            red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+                            try:
+                                num = int(latest_spin)
+                                if specific_bet == "Red":
+                                    won = num in red_numbers
+                                else:  # Black
+                                    won = num not in red_numbers and num != 0 and num != 00
+                            except ValueError:
+                                # Handle 00
+                                won = False  # Neither red nor black
+                            
+                        elif bet_type == "Even/Odd":
+                            try:
+                                num = int(latest_spin)
+                                if specific_bet == "Even":
+                                    won = num != 0 and num % 2 == 0
+                                else:  # Odd
+                                    won = num % 2 == 1
+                            except ValueError:
+                                # Handle 00
+                                won = False  # Neither even nor odd
+                            
+                        elif bet_type == "1-18/19-36":
+                            try:
+                                num = int(latest_spin)
+                                if specific_bet == "1-18 (Low)":
+                                    won = 1 <= num <= 18
+                                else:  # 19-36 (High)
+                                    won = 19 <= num <= 36
+                            except ValueError:
+                                # Handle 00
+                                won = False
+                            
+                        elif bet_type == "Dozen (1-12, 13-24, 25-36)":
+                            try:
+                                num = int(latest_spin)
+                                if specific_bet == "1st Dozen (1-12)":
+                                    won = 1 <= num <= 12
+                                elif specific_bet == "2nd Dozen (13-24)":
+                                    won = 13 <= num <= 24
+                                else:  # 3rd Dozen
+                                    won = 25 <= num <= 36
+                            except ValueError:
+                                # Handle 00
+                                won = False
+                            
+                        elif bet_type == "Column":
+                            try:
+                                num = int(latest_spin)
+                                if specific_bet == "1st Column (1,4,7,...,34)":
+                                    won = num % 3 == 1
+                                elif specific_bet == "2nd Column (2,5,8,...,35)":
+                                    won = num % 3 == 2
+                                else:  # 3rd Column
+                                    won = num % 3 == 0 and num != 0
+                            except ValueError:
+                                # Handle 00
+                                won = False
+                            
+                        elif bet_type == "Split (Two Numbers)":
+                            try:
+                                split_numbers = [int(n) for n in specific_bet.split('/')]
+                                won = int(latest_spin) in split_numbers
+                            except ValueError:
+                                # Handle 00 or conversion error
+                                won = False
+                            
+                        elif bet_type == "Street (Three Numbers)":
+                            try:
+                                street_numbers = [int(n) for n in specific_bet.split(',')]
+                                won = int(latest_spin) in street_numbers
+                            except ValueError:
+                                # Handle 00 or conversion error
+                                won = False
+                            
+                        elif bet_type == "Corner (Four Numbers)":
+                            try:
+                                corner_numbers = [int(n) for n in specific_bet.split(',')]
+                                won = int(latest_spin) in corner_numbers
+                            except ValueError:
+                                # Handle 00 or conversion error
+                                won = False
+                            
+                        elif bet_type == "Six Line":
+                            try:
+                                first, last = map(int, specific_bet.split('-'))
+                                six_line_numbers = list(range(first, last + 1))
+                                won = int(latest_spin) in six_line_numbers
+                            except ValueError:
+                                # Handle 00 or conversion error
+                                won = False
+                            
+                        elif bet_type == "Zero/Double Zero":
+                            won = specific_bet == latest_spin
+                        
+                        # Calculate winnings or losses
+                        if won:
+                            winnings = bet_amount * payout_multiplier
+                            st.session_state.bet_simulator_bankroll += winnings
+                            st.success(f"🎉 You won ${winnings:.2f}!")
+                            
+                            # Record win for agent learning
+                            st.session_state.agent.record_result(
+                                latest_spin, bet_type, True, winnings
+                            )
+                        else:
+                            st.session_state.bet_simulator_bankroll -= bet_amount
+                            st.error(f"❌ You lost ${bet_amount:.2f}")
+                            
+                            # Record loss for agent learning
+                            st.session_state.agent.record_result(
+                                latest_spin, bet_type, False, -bet_amount
+                            )
+                        
+                        # Record in bet history
+                        st.session_state.bet_history.append({
+                            'bet_type': bet_type,
+                            'specific_bet': specific_bet,
+                            'amount': bet_amount,
+                            'spin_result': latest_spin,
+                            'won': won,
+                            'payout_multiplier': payout_multiplier,
+                            'bankroll_after': st.session_state.bet_simulator_bankroll
+                        })
+                        
+                        # Update main bankroll to match simulator if requested
+                        if st.session_state.bet_simulator_bankroll != st.session_state.bankroll:
+                            st.session_state.bankroll = st.session_state.bet_simulator_bankroll
+                            
+                        # Rerun to update the UI
+                        st.rerun()
+                    else:
+                        if latest_spin is None:
+                            st.error("No spin data available. Please add spins in the Data Management tab.")
+                        else:
+                            st.error("Insufficient funds for this bet.")
+            
+            # Display bet history
+            if len(st.session_state.bet_history) > 0:
+                st.subheader("Betting History")
+                
+                # Create DataFrame from bet history
+                history_df = pd.DataFrame(st.session_state.bet_history)
+                
+                # Calculate win rate
+                win_rate = history_df['won'].mean() * 100
+                
+                # Calculate profit/loss
+                initial_bankroll = 100.0  # Assuming starting bankroll was 100
+                total_profit = st.session_state.bet_simulator_bankroll - initial_bankroll
+                
+                # Show metrics
+                metric_col1, metric_col2, metric_col3 = st.columns(3)
+                with metric_col1:
+                    st.metric("Total Bets", len(st.session_state.bet_history))
+                with metric_col2:
+                    st.metric("Win Rate", f"{win_rate:.1f}%")
+                with metric_col3:
+                    st.metric("Profit/Loss", f"${total_profit:.2f}", delta=f"{total_profit:.2f}")
+                
+                # Show recent bets
+                st.write("Recent Bets")
+                recent_history = history_df.tail(5).sort_index(ascending=False).reset_index(drop=True)
+                
+                # Format the data for display
+                display_history = recent_history[['bet_type', 'specific_bet', 'amount', 'spin_result', 'won', 'bankroll_after']].copy()
+                display_history['won'] = display_history['won'].apply(lambda x: "✅ Won" if x else "❌ Lost")
+                display_history['amount'] = display_history['amount'].apply(lambda x: f"${x:.2f}")
+                display_history['bankroll_after'] = display_history['bankroll_after'].apply(lambda x: f"${x:.2f}")
+                
+                # Rename columns for better display
+                display_history.columns = ['Bet Type', 'Selection', 'Amount', 'Result', 'Outcome', 'Bankroll After']
+                
+                # Display as a table
+                st.dataframe(display_history, use_container_width=True)
+                
+                # Agent Recommendation Based on Betting History
+                st.subheader("Agent Recommendation")
+                
+                # Get agent recommendation
+                strategy_name = st.session_state.agent.get_recommendation(st.session_state.bet_simulator_bankroll)
+                recommended_bet = st.session_state.agent.get_bet_size_recommendation(st.session_state.bet_simulator_bankroll)
+                
+                # Agent assessment
+                losing_streak = st.session_state.agent.recent_losing_streak()
+                
+                recommendation_text = f"""
+                Based on your betting history and current bankroll (${st.session_state.bet_simulator_bankroll:.2f}), 
+                the agent recommends the following strategy:
+                
+                **Strategy:** {strategy_name}
+                **Suggested Bet Size:** ${recommended_bet:.2f}
+                """
+                
+                if losing_streak >= 3:
+                    recommendation_text += f"\n\n⚠️ **Warning:** You're currently on a {losing_streak} bet losing streak. Consider lowering your bet size or taking a break."
+                
+                st.info(recommendation_text)
+                
+        else:
+            st.warning("Need spin data for bet simulation. Please add spins in the Data Management tab.")
