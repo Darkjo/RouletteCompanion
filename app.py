@@ -1477,10 +1477,10 @@ with main_tab3:
                                           step=10.0)
         with col2:
             bet_size = st.number_input("Base Bet Size:", 
-                                     min_value=1.0, 
+                                     min_value=0.10, 
                                      max_value=sim_bankroll/10,  # Max 10% of bankroll
                                      value=recommended_bet,
-                                     step=1.0)
+                                     step=0.10)
         
         # Bet type selection for simulation
         bet_type = st.selectbox("Select Bet Type:", 
@@ -1711,7 +1711,7 @@ with main_tab2:
         )
         
         bankroll = st.number_input("Initial bankroll (units):", min_value=10, value=100, step=10)
-        bet_size = st.number_input("Bet size (units):", min_value=1, value=1, step=1)
+        bet_size = st.number_input("Bet size (units):", min_value=0.10, value=1, step=0.10)
         
         if st.button("Run Pattern Simulation"):
             results = st.session_state.analyzer.simulate_betting(
@@ -2448,10 +2448,10 @@ with main_tab2:
                 # Bet amount
                 bet_amount = st.number_input(
                     "Bet Amount ($)", 
-                    min_value=1.0, 
+                    min_value=0.10, 
                     max_value=float(st.session_state.bet_simulator_bankroll), 
                     value=min(5.0, float(st.session_state.bet_simulator_bankroll)),
-                    step=1.0
+                    step=0.10
                 )
                 
                 # Calculate potential win
