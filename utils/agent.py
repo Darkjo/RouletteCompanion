@@ -21,6 +21,7 @@ from time import time
 from datetime import datetime
 
 from utils.real_time_adaptation import RealTimeAdapter
+import functools
 
 class RLAgent:
     """
@@ -390,6 +391,7 @@ class RLAgent:
         return _self._calculate_bet_recommendations(spins_df, roulette_type, bankroll, fast_mode=fast_mode)
     
     @with_clean_dataframe
+    @functools.lru_cache(maxsize=32)
     def get_specific_bet_recommendations(self, spins_df, roulette_type, bankroll, fast_mode=False):
         """
         Provide specific number and bet recommendations based on statistical analysis.
