@@ -2792,5 +2792,76 @@ with main_tab2:
                 
                 st.info(recommendation_text)
                 
+                # Advanced recommendations
+                detailed_rec_expander = st.expander("Detailed Betting Recommendations", expanded=False)
+                with detailed_rec_expander:
+                    if spins_df is not None and not spins_df.empty and len(spins_df) >= 5:
+                        # Get recommendations using the agent
+                        bet_recommendations = st.session_state.agent.get_specific_bet_recommendations(
+                            spins_df, 
+                            current_roulette_type, 
+                            st.session_state.bet_simulator_bankroll,
+                            fast_mode=True
+                        )
+                        
+                        if bet_recommendations:
+                            # Display agent accuracy
+                            accuracy = st.session_state.agent.get_accuracy() * 100
+                            st.metric(
+                                "Agent Prediction Accuracy",
+                                f"{accuracy:.1f}%",
+                                help="Higher accuracy means more reliable recommendations"
+                            )
+                            
+                            # Display top number recommendations
+                            if "hot_numbers" in bet_recommendations and bet_recommendations["hot_numbers"]:
+                                st.write("**Top Number Recommendations:**")
+                                hot_cols = st.columns(min(5, len(bet_recommendations["hot_numbers"])))
+                                for i, hot_num in enumerate(bet_recommendations["hot_numbers"][:5]):
+                                    with hot_cols[i]:
+                                        num = hot_num["number"]
+                                        confidence = hot_num["confidence"] * 100
+                                        st.metric(
+                                            f"Number {num}",
+                                            f"{confidence:.1f}%",
+                                            help=f"Expected to hit with {confidence:.1f}% confidence"
+                                        )
+                            
+                            # Display pattern recommendations
+                            if "pattern_recommendations" in bet_recommendations:
+                                pattern_recs = bet_recommendations["pattern_recommendations"]
+                                if pattern_recs:
+                                    st.write("**Pattern Recommendations:**")
+                                    
+                                    # Create table for pattern recommendations
+                                    pattern_data = []
+                                    for pattern, data in pattern_recs.items():
+                                        if data["confidence"] > 0.1:
+                                            pattern_display = pattern.replace("_", " ").title()
+                                            pattern_data.append({
+                                                "Pattern": pattern_display,
+                                                "Confidence": f"{data['confidence'] * 100:.1f}%",
+                                                "Expected Value": f"{data['expected_value']:.2f}",
+                                                "Recommendation": "Bet" if data['confidence'] > 0.5 else "Avoid" if data['confidence'] < 0.3 else "Neutral"
+                                            })
+                                    
+                                    if pattern_data:
+                                        pattern_df = pd.DataFrame(pattern_data)
+                                        st.dataframe(pattern_df, use_container_width=True)
+                                        
+                                        # Show best pattern
+                                        best_pattern = max(pattern_recs.items(), key=lambda x: x[1]["confidence"])
+                                        if best_pattern[1]["confidence"] > 0.4:
+                                            best_pattern_name = best_pattern[0].replace("_", " ").title()
+                                            st.success(f"**Best betting pattern:** {best_pattern_name} with {best_pattern[1]['confidence'] * 100:.1f}% confidence")
+                                    else:
+                                        st.info("No significant patterns detected")
+                                else:
+                                    st.info("No pattern recommendations available yet")
+                        else:
+                            st.warning("Unable to generate detailed recommendations with the current data")
+                    else:
+                        st.warning("Need more spin data for detailed recommendations (minimum 5 spins)")
+                
         else:
             st.warning("Need spin data for bet simulation. Please add spins in the Data Management tab.")
