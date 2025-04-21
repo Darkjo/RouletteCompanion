@@ -10,7 +10,7 @@ class RouletteAnalyzer:
     Class to analyze roulette spin data and provide insights.
     """
     
-    @functools.lru_cache(maxsize=16)
+    # Can't use lru_cache with DataFrame argument 
     def get_hot_cold_numbers(self, spins_df, roulette_type, hot_count=5, cold_count=5):
         """
         Get the most frequent (hot) and least frequent (cold) numbers.
