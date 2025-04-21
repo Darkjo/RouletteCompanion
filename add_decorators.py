@@ -56,15 +56,15 @@ if '@functools.lru_cache(maxsize=32)' not in content:
 with open('utils/agent.py', 'w') as f:
     f.write(content)
 
-# Add caching to analysis.py
+# NOTE: We're not adding caching to analysis.py functions that use DataFrames
+# as they are not hashable and will cause errors
 with open('utils/analysis.py', 'r') as f:
     content = f.read()
 
 if 'import functools' not in content:
     content = content.replace('import ', 'import functools\nimport ', 1)
 
-if '@functools.lru_cache(maxsize=16)' not in content:
-    content = content.replace('    def get_hot_cold_numbers', '    @functools.lru_cache(maxsize=16)\n    def get_hot_cold_numbers', 1)
+# Removed the addition of @functools.lru_cache to get_hot_cold_numbers as pandas DataFrames are not hashable
 
 with open('utils/analysis.py', 'w') as f:
     f.write(content)
