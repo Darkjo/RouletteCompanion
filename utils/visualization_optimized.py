@@ -333,25 +333,90 @@ class RouletteVisualizer:
         return fig
     
     @with_clean_dataframe
-    def plot_betting_strategy_heatmap(self, strategies_data):
+    def plot_betting_strategy_heatmap(self, spins_df, roulette_type, bet_recommendations):
         """
         Create a heatmap visualization for betting strategy recommendations.
         
         Args:
-            strategies_data (dict): Dictionary of strategies and their outcomes
+            spins_df (pd.DataFrame): DataFrame with spin data
+            roulette_type (str): Type of roulette - 'European' or 'American'
+            bet_recommendations (dict): Dictionary with bet recommendations
             
         Returns:
             plotly.graph_objects.Figure: Plotly figure object
         """
-        if not strategies_data:
+        # Initialize figure
+        fig = go.Figure()
+        
+        if spins_df is None or spins_df.empty or not bet_recommendations:
             # Return empty figure
-            fig = go.Figure()
             fig.update_layout(
-                title="No strategy data available"
+                title="No strategy data available",
+                height=400,
+                width=600
             )
             return fig
         
-        # Additional implementation details here...
+        # Extract key recommendation data for visualization
+        strategies = []
+        confidence_scores = []
+        
+        # Add single numbers with their confidence scores
+        for num_rec in bet_recommendations.get('single_numbers', []):
+            if 'number' in num_rec and 'confidence' in num_rec:
+                strategies.append(f"Single: {num_rec['number']}")
+                confidence_scores.append(num_rec['confidence'])
+        
+        # Add other bet types
+        for bet_type in ['columns', 'dozens', 'red_black', 'even_odd', 'high_low']:
+            if bet_type in bet_recommendations and bet_recommendations[bet_type].get('recommendation'):
+                rec = bet_recommendations[bet_type]
+                strategies.append(f"{bet_type.replace('_', ' ').title()}: {rec['recommendation']}")
+                confidence_scores.append(rec['confidence'])
+        
+        # Create data for heatmap
+        if strategies and confidence_scores:
+            # Sort by confidence for better visualization
+            sorted_indices = sorted(range(len(confidence_scores)), 
+                                   key=lambda i: confidence_scores[i], 
+                                   reverse=True)
+            
+            sorted_strategies = [strategies[i] for i in sorted_indices]
+            sorted_scores = [confidence_scores[i] for i in sorted_indices]
+            
+            # Create a colorful heatmap
+            fig.add_trace(go.Heatmap(
+                z=[sorted_scores],
+                y=['Confidence'],
+                x=sorted_strategies,
+                colorscale='Viridis',
+                showscale=True,
+                text=[[f"{score:.2f}" for score in sorted_scores]],
+                texttemplate="%{text}",
+                textfont={"size":12}
+            ))
+            
+            # Update layout for better readability
+            fig.update_layout(
+                title="Betting Strategy Confidence Heatmap",
+                xaxis_title="Strategy",
+                yaxis_title="",
+                height=300,
+                margin=dict(l=60, r=30, t=50, b=80),
+                xaxis=dict(tickangle=-45)
+            )
+        else:
+            # No valid strategies to display
+            fig.add_trace(go.Bar(
+                x=["No strategies with confidence data"],
+                y=[0],
+                marker_color="lightgray"
+            ))
+            fig.update_layout(
+                title="No strategy confidence data available",
+                height=300
+            )
+        
         return fig
     
     def _get_color_for_number(self, number, color=None):
