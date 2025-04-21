@@ -1710,8 +1710,8 @@ with main_tab2:
             ["Red/Black", "Even/Odd", "High/Low", "Dozens", "Columns", "Single Number"]
         )
         
-        bankroll = st.number_input("Initial bankroll (units):", min_value=10, value=100, step=10)
-        bet_size = st.number_input("Bet size (units):", min_value=0.10, value=1, step=0.10)
+        bankroll = st.number_input("Initial bankroll (units):", min_value=10.0, value=100.0, step=10.0)
+        bet_size = st.number_input("Bet size (units):", min_value=0.10, value=1.0, step=0.10)
         
         if st.button("Run Pattern Simulation"):
             results = st.session_state.analyzer.simulate_betting(
@@ -2301,8 +2301,8 @@ with main_tab2:
         if 'bet_history' not in st.session_state:
             st.session_state.bet_history = []
             
-        # Display current bankroll
-        col1, col2 = st.columns(2)
+        # Display current bankroll and controls
+        col1, col2, col3 = st.columns([2, 2, 2])
         with col1:
             current_simulator_bankroll = st.number_input(
                 "Simulator Bankroll ($)", 
@@ -2318,10 +2318,101 @@ with main_tab2:
                 st.session_state.bet_simulator_bankroll = 100.0
                 st.session_state.bet_history = []
                 st.rerun()
-        
+                
+        with col3:
+            if st.button("Get Agent Recommendations", help="Use agent to analyze bet history and provide recommendations"):
+                # Only provide recommendations if we have betting history
+                if len(st.session_state.bet_history) > 0:
+                    # Process bet history to train the agent
+                    for bet in st.session_state.bet_history:
+                        # Update agent with bet results if not already recorded
+                        if 'processed_by_agent' not in bet or not bet['processed_by_agent']:
+                            st.session_state.agent.record_result(
+                                bet['spin_result'], 
+                                bet['bet_type'], 
+                                bet['won'], 
+                                bet['amount'] * bet['payout_multiplier'] if bet['won'] else -bet['amount']
+                            )
+                            bet['processed_by_agent'] = True
+                    st.success("Agent updated with your betting history!")
+                    st.rerun()
+                else:
+                    st.info("Place some bets first to get recommendations.")
+                
         # Display spins data if available
         spins_df = st.session_state.roulette_data.get_session_data(st.session_state.current_session)
         current_roulette_type = st.session_state.roulette_data.get_session_type(st.session_state.current_session)
+        
+        # Add quick input panel for spins
+        import random
+        from datetime import datetime
+        
+        spin_input_expander = st.expander("Quick Spin Input", expanded=False)
+        with spin_input_expander:
+            st.write("Add new spins directly from the Bet Simulator tab:")
+            
+            def on_spin_added(number):
+                # Add the spin with current timestamp
+                st.session_state.roulette_data.add_spin(
+                    session_name=st.session_state.current_session,
+                    number=number,
+                    timestamp=datetime.now()
+                )
+                st.success(f"✅ Added spin: {number}")
+                st.rerun()
+            
+            # Create simplified quick input panel
+            tabs = st.tabs(["Number Grid", "Quick Numbers"])
+            
+            with tabs[0]:
+                # Green (0 and 00)
+                zero_row = st.columns([1, 1, 6] if current_roulette_type == "American" else [1, 7])
+                with zero_row[0]:
+                    if st.button("0", key="simulator_0", use_container_width=True, type="primary"):
+                        on_spin_added("0")
+                
+                if current_roulette_type == "American":
+                    with zero_row[1]:
+                        if st.button("00", key="simulator_00", use_container_width=True, type="primary"):
+                            on_spin_added("00")
+                
+                # Numbers 1-36 in standard layout (3 rows of 12 numbers)
+                st.write("**Row 1 (1-12)**")
+                cols = st.columns(12)
+                for i in range(12):
+                    number = i + 1
+                    with cols[i]:
+                        if st.button(str(number), key=f"simulator_{number}", use_container_width=True):
+                            on_spin_added(str(number))
+                
+                st.write("**Row 2 (13-24)**")
+                cols = st.columns(12)
+                for i in range(12):
+                    number = i + 13
+                    with cols[i]:
+                        if st.button(str(number), key=f"simulator_{number}", use_container_width=True):
+                            on_spin_added(str(number))
+                
+                st.write("**Row 3 (25-36)**")
+                cols = st.columns(12)
+                for i in range(12):
+                    number = i + 25
+                    with cols[i]:
+                        if st.button(str(number), key=f"simulator_{number}", use_container_width=True):
+                            on_spin_added(str(number))
+            
+            with tabs[1]:
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Red", key="simulator_red", use_container_width=True):
+                        on_spin_added(str(random.choice([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36])))
+                    if st.button("Odd", key="simulator_odd", use_container_width=True):
+                        on_spin_added(str(random.choice(range(1, 37, 2))))
+                with col2:
+                    if st.button("Black", key="simulator_black", use_container_width=True):
+                        on_spin_added(str(random.choice([2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35])))
+                    if st.button("Even", key="simulator_even", use_container_width=True):
+                        on_spin_added(str(random.choice(range(2, 37, 2))))
         
         if spins_df is not None and not spins_df.empty:
             # Get the most recent spin for simulation
