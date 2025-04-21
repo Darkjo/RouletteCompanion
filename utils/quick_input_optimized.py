@@ -47,16 +47,36 @@ def create_quick_input_panel(current_roulette_type="European", on_result_callbac
                 if on_result_callback:
                     on_result_callback("00")
     
-    # Numbers 1-36 - Optimize layout to fit more numbers per row for fewer UI elements
-    cols_per_row = 6
-    for row in range(6):
-        cols = st.columns(cols_per_row)
-        for col in range(cols_per_row):
-            number = row * cols_per_row + col + 1
-            with cols[col]:
-                if st.button(str(number), key=f"quick_{number}", use_container_width=True):
-                    if on_result_callback:
-                        on_result_callback(str(number))
+    # Numbers 1-36 - Using standard roulette table layout (3 rows of 12 numbers)
+    # Row 1: 1-12
+    st.write("**Row 1 (1-12)**")
+    cols = st.columns(12)
+    for i in range(12):
+        number = i + 1
+        with cols[i]:
+            if st.button(str(number), key=f"quick_{number}", use_container_width=True):
+                if on_result_callback:
+                    on_result_callback(str(number))
+    
+    # Row 2: 13-24
+    st.write("**Row 2 (13-24)**")
+    cols = st.columns(12)
+    for i in range(12):
+        number = i + 13
+        with cols[i]:
+            if st.button(str(number), key=f"quick_{number}", use_container_width=True):
+                if on_result_callback:
+                    on_result_callback(str(number))
+    
+    # Row 3: 25-36
+    st.write("**Row 3 (25-36)**")
+    cols = st.columns(12)
+    for i in range(12):
+        number = i + 25
+        with cols[i]:
+            if st.button(str(number), key=f"quick_{number}", use_container_width=True):
+                if on_result_callback:
+                    on_result_callback(str(number))
     
     # Group buttons - Optimize to use fewer expanders and collapse common elements
     with st.expander("Group Buttons", expanded=False):
