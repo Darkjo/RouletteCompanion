@@ -639,7 +639,7 @@ with main_tab2:
         elif analysis_option == "Red/Black Distribution":
             st.subheader("Red/Black Distribution Analysis")
             fig = st.session_state.visualizer.plot_red_black_distribution(spins_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="red_black_chart")
             
             # Display red/black trend
             red_black_trend = st.session_state.analyzer.get_red_black_trend(spins_df)
@@ -649,7 +649,7 @@ with main_tab2:
         elif analysis_option == "Dozens Distribution":
             st.subheader("Dozens Distribution Analysis")
             fig = st.session_state.visualizer.plot_dozens_distribution(spins_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="dozens_chart")
             
             # Display dozens trend
             dozens_trend = st.session_state.analyzer.get_dozens_trend(spins_df)
@@ -659,7 +659,7 @@ with main_tab2:
         elif analysis_option == "Columns Distribution":
             st.subheader("Columns Distribution Analysis")
             fig = st.session_state.visualizer.plot_columns_distribution(spins_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="columns_chart")
             
             # Display columns trend
             columns_trend = st.session_state.analyzer.get_columns_trend(spins_df)
@@ -669,7 +669,7 @@ with main_tab2:
         elif analysis_option == "High/Low Distribution":
             st.subheader("High/Low Distribution Analysis")
             fig = st.session_state.visualizer.plot_high_low_distribution(spins_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="high_low_chart")
             
             # Display high/low trend
             high_low_trend = st.session_state.analyzer.get_high_low_trend(spins_df)
@@ -1604,7 +1604,7 @@ with main_tab3:
                 yaxis_title="Bankroll ($)",
                 showlegend=False
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="bankroll_progression_chart")
             
             # Update agent recommendation
             st.subheader("Updated Agent Recommendation")
@@ -1658,7 +1658,7 @@ with main_tab2:
             
             # Visualize the comparison
             fig = st.session_state.visualizer.plot_actual_vs_expected(comparison_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="actual_vs_expected_chart")
         
         with prob_tab2:
             st.write("### Deviation from Expected")
@@ -1673,7 +1673,7 @@ with main_tab2:
             
             # Visualize deviations
             fig = st.session_state.visualizer.plot_deviations(deviation_df)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="deviations_chart")
         
         with prob_tab3:
             st.write("### Randomness Test (Chi-Square)")
@@ -1740,7 +1740,7 @@ with main_tab2:
             
             # Plot bankroll progression
             fig = st.session_state.visualizer.plot_bankroll_progression(results['bankroll_history'])
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="winloss_simulation_chart")
     
     else:
         st.info("No spin data available for statistics. Please add spins in the Spin Tracker tab.")
