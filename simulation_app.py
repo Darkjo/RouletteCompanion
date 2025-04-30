@@ -261,240 +261,396 @@ def create_roulette_board():
     simulator = st.session_state.simulator
     roulette_type = simulator.roulette_type
     
-    # Container for the roulette table
-    board_container = st.container()
+    # Main title
+    st.write("## Roulette Board")
     
-    with board_container:
-        # Numbers layout
-        cols = st.columns([1, 3])
-        
-        with cols[0]:
-            # Zero section
-            st.write("### 0 Section")
-            
-            # For American roulette, we need to handle 0 and 00
-            if roulette_type == 'American':
-                # Create a container for displaying zero buttons side by side using HTML
-                st.markdown("""
-                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <div style="background-color: green; color: white; text-align: center; 
-                    padding: 15px; border-radius: 5px; flex: 1;">0</div>
-                    <div style="background-color: green; color: white; text-align: center; 
-                    padding: 15px; border-radius: 5px; flex: 1;">00</div>
+    # Create a completely HTML-based roulette board for visual display
+    html_board = """
+    <style>
+        .roulette-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            font-family: sans-serif;
+        }
+        .zero-section {
+            flex: 1;
+        }
+        .number-grid {
+            flex: 3;
+        }
+        .zero-cell {
+            background-color: green;
+            color: white;
+            text-align: center;
+            padding: 20px 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .zero-cells {
+            display: flex;
+            gap: 10px;
+        }
+        .zero-cell-double {
+            flex: 1;
+        }
+        .roulette-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+        .number-cell {
+            padding: 10px 0;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        .dozen-section {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .dozen-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+        }
+        .column-section {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .column-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+        }
+    </style>
+    <div class="roulette-container">
+        <div class="zero-section">
+            <h3>Zero Section</h3>
+    """
+    
+    # Add zeros based on roulette type
+    if roulette_type == 'American':
+        html_board += """
+            <div class="zero-cells">
+                <div class="zero-cell zero-cell-double">0</div>
+                <div class="zero-cell zero-cell-double">00</div>
+            </div>
+        """
+    else:
+        html_board += """
+            <div class="zero-cell">0</div>
+        """
+    
+    html_board += """
+            <div style="margin-top: 15px;">
+                <div style="border: 1px solid #ccc; padding: 10px; text-align: center; border-radius: 4px; background-color: #f0f0f0;">
+                    Top Line (0, 00, 1, 2, 3)
                 </div>
-                """, unsafe_allow_html=True)
-                
-                # Add actual buttons below (one at a time, not in columns)
-                if st.button("Bet on 0", key="btn_0", use_container_width=True, 
-                           help="Straight bet on 0"):
-                    place_bet('straight', 0)
-                
-                if st.button("Bet on 00", key="btn_00", use_container_width=True,
-                           help="Straight bet on 00"):
-                    place_bet('straight', '00')
-            else:
-                # European roulette only has a single zero
-                st.markdown("""
-                <div style="background-color: green; color: white; text-align: center; 
-                padding: 15px; border-radius: 5px; margin-bottom: 10px;">0</div>
-                """, unsafe_allow_html=True)
-                
-                if st.button("Bet on 0", key="btn_0", use_container_width=True, 
-                           help="Straight bet on 0"):
-                    place_bet('straight', 0)
-            
-            # Top line bet
-            st.button("Top Line", key="btn_top_line", use_container_width=True,
-                     help="Top line bet on 0, 00, 1, 2, 3 (pays 6:1)") 
-            
-            if st.button("Place Top Line Bet", key="place_top_line", use_container_width=True):
-                place_bet('top_line')
-        
-        with cols[1]:
-            # Main number grid (3 rows by 12 columns)
-            st.write("### Number Grid")
-            
-            # Create a visual representation of the roulette grid using HTML
-            html_grid = """
-            <style>
-                .roulette-grid {
-                    display: grid;
-                    grid-template-columns: repeat(12, 1fr);
-                    gap: 4px;
-                    margin-bottom: 16px;
-                }
-                .number-cell {
-                    padding: 10px 0;
-                    text-align: center;
-                    color: white;
-                    font-weight: bold;
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-            </style>
+            </div>
+        </div>
+        <div class="number-grid">
+            <h3>Number Grid</h3>
             <div class="roulette-grid">
-            """
-            
-            # Generate the HTML for the grid
-            for row in range(3):
-                for col in range(12):
-                    number = row + (col * 3) + 1
-                    color = "red" if number in simulator.red_numbers else "black"
-                    html_grid += f'<div class="number-cell" style="background-color: {color};">{number}</div>'
-            
-            html_grid += "</div>"
-            
-            # Display the grid
-            st.markdown(html_grid, unsafe_allow_html=True)
-            
-            # Create separate buttons for betting on specific numbers - arranged in rows
-            for row in range(3):
-                row_text = f"Row {row+1}: "
-                row_buttons = []
-                
-                for col in range(12):
-                    number = row + (col * 3) + 1
-                    row_buttons.append(f"{number}")
-                
-                st.write(f"**{row_text}** {', '.join(row_buttons)}")
-                
-                # Create 6 buttons in each row (to avoid too many columns)
-                bet_cols = st.columns(6)
-                for i in range(6):
-                    # First half of the numbers
-                    num1 = row + (i * 3) + 1
-                    if bet_cols[i].button(f"Bet on {num1}", key=f"btn_{num1}", 
-                                      help=f"Straight bet on {num1}"):
-                        place_bet('straight', num1)
-                
-                # Second set of 6 buttons
-                bet_cols2 = st.columns(6)
-                for i in range(6):
-                    # Second half of the numbers
-                    num2 = row + ((i+6) * 3) + 1
-                    if bet_cols2[i].button(f"Bet on {num2}", key=f"btn_{num2}_2", 
-                                       help=f"Straight bet on {num2}"):
-                        place_bet('straight', num2)
-            
-            # Add row for dozens
-            dozens_cols = st.columns(3)
-            for idx, dozen in enumerate(["1st Dozen (1-12)", "2nd Dozen (13-24)", "3rd Dozen (25-36)"]):
-                # Calculate the dozen range
-                start_num = (idx * 12) + 1
-                end_num = start_num + 11
-                dozen_numbers = list(range(start_num, end_num + 1))
-                
-                if dozens_cols[idx].button(dozen, key=f"btn_dozen_{idx+1}", use_container_width=True,
-                                       help=f"Dozen bet on {dozen} (pays 2:1)"):
-                    # Show the numbers this bet covers
-                    st.info(f"Dozen {idx+1} covers: {start_num}-{end_num}")
-                    
-                    place_bet('dozen', idx+1)
-            
-            # Add row for columns
-            columns_cols = st.columns(3)
-            for idx, col_name in enumerate(["1st Column", "2nd Column", "3rd Column"]):
-                # Calculate which numbers this column covers
-                column_numbers = list(range(idx+1, 37, 3))
-                
-                # Create a formatted string with the numbers
-                column_numbers_str = ", ".join(str(n) for n in column_numbers)
-                
-                if columns_cols[idx].button(col_name, key=f"btn_column_{idx+1}", use_container_width=True,
-                                       help=f"Column bet on {col_name} (pays 2:1)\nCovers: {column_numbers_str}"):
-                    
-                    # Create a visual representation of the column
-                    st.info(f"Column {idx+1} covers: {column_numbers_str}")
-                    
-                    place_bet('column', idx+1)
+    """
+    
+    # Generate the grid of numbers
+    for row in range(3):
+        for col in range(12):
+            number = row + (col * 3) + 1
+            color = "red" if number in simulator.red_numbers else "black"
+            html_board += f'<div class="number-cell" style="background-color: {color};">{number}</div>'
+    
+    # Add dozen bets
+    html_board += """
+            </div>
+            <div class="dozen-section">
+                <div class="dozen-box">1st Dozen (1-12)</div>
+                <div class="dozen-box">2nd Dozen (13-24)</div>
+                <div class="dozen-box">3rd Dozen (25-36)</div>
+            </div>
+            <div class="column-section">
+                <div class="column-box">1st Column</div>
+                <div class="column-box">2nd Column</div>
+                <div class="column-box">3rd Column</div>
+            </div>
+        </div>
+    </div>
+    """
+    
+    # Display the visual board
+    st.markdown(html_board, unsafe_allow_html=True)
+    
+    # Horizontal line separator
+    st.markdown("---")
+    
+    # Now create the actual betting interface
+    st.write("## Place Your Bets")
+    
+    # Zero section for betting
+    st.write("### Zero Section")
+    zero_container = st.container()
+    
+    # Use a single row of columns for zero section
+    zero_betting = st.columns(3)
+    
+    with zero_betting[0]:
+        if st.button("Bet on 0", key="btn_0", use_container_width=True, 
+                   help="Straight bet on 0"):
+            place_bet('straight', 0)
+    
+    # Only show 00 option for American roulette
+    with zero_betting[1]:
+        if roulette_type == 'American':
+            if st.button("Bet on 00", key="btn_00", use_container_width=True,
+                       help="Straight bet on 00"):
+                place_bet('straight', '00')
+    
+    with zero_betting[2]:
+        if st.button("Top Line Bet", key="place_top_line", use_container_width=True,
+                   help="Bet on 0, 00, 1, 2, 3 (pays 6:1)"):
+            place_bet('top_line')
+    
+    # Straight number bets
+    st.write("### Number Bets")
+    
+    # Display row 1 numbers (1-12)
+    st.write("**Row 1:** 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34")
+    
+    # Use buttons in groups to avoid nesting issues
+    row1_betting = st.columns(4)
+    
+    with row1_betting[0]:
+        if st.button("Bet on 1", key="btn_1", use_container_width=True):
+            place_bet('straight', 1)
+        if st.button("Bet on 4", key="btn_4", use_container_width=True):
+            place_bet('straight', 4)
+        if st.button("Bet on 7", key="btn_7", use_container_width=True):
+            place_bet('straight', 7)
+    
+    with row1_betting[1]:
+        if st.button("Bet on 10", key="btn_10", use_container_width=True):
+            place_bet('straight', 10)
+        if st.button("Bet on 13", key="btn_13", use_container_width=True):
+            place_bet('straight', 13)
+        if st.button("Bet on 16", key="btn_16", use_container_width=True):
+            place_bet('straight', 16)
+    
+    with row1_betting[2]:
+        if st.button("Bet on 19", key="btn_19", use_container_width=True):
+            place_bet('straight', 19)
+        if st.button("Bet on 22", key="btn_22", use_container_width=True):
+            place_bet('straight', 22)
+        if st.button("Bet on 25", key="btn_25", use_container_width=True):
+            place_bet('straight', 25)
+    
+    with row1_betting[3]:
+        if st.button("Bet on 28", key="btn_28", use_container_width=True):
+            place_bet('straight', 28)
+        if st.button("Bet on 31", key="btn_31", use_container_width=True):
+            place_bet('straight', 31)
+        if st.button("Bet on 34", key="btn_34", use_container_width=True):
+            place_bet('straight', 34)
+    
+    # Display row 2 numbers (2-35)
+    st.write("**Row 2:** 2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35")
+    
+    row2_betting = st.columns(4)
+    
+    with row2_betting[0]:
+        if st.button("Bet on 2", key="btn_2", use_container_width=True):
+            place_bet('straight', 2)
+        if st.button("Bet on 5", key="btn_5", use_container_width=True):
+            place_bet('straight', 5)
+        if st.button("Bet on 8", key="btn_8", use_container_width=True):
+            place_bet('straight', 8)
+    
+    with row2_betting[1]:
+        if st.button("Bet on 11", key="btn_11", use_container_width=True):
+            place_bet('straight', 11)
+        if st.button("Bet on 14", key="btn_14", use_container_width=True):
+            place_bet('straight', 14)
+        if st.button("Bet on 17", key="btn_17", use_container_width=True):
+            place_bet('straight', 17)
+    
+    with row2_betting[2]:
+        if st.button("Bet on 20", key="btn_20", use_container_width=True):
+            place_bet('straight', 20)
+        if st.button("Bet on 23", key="btn_23", use_container_width=True):
+            place_bet('straight', 23)
+        if st.button("Bet on 26", key="btn_26", use_container_width=True):
+            place_bet('straight', 26)
+    
+    with row2_betting[3]:
+        if st.button("Bet on 29", key="btn_29", use_container_width=True):
+            place_bet('straight', 29)
+        if st.button("Bet on 32", key="btn_32", use_container_width=True):
+            place_bet('straight', 32)
+        if st.button("Bet on 35", key="btn_35", use_container_width=True):
+            place_bet('straight', 35)
+    
+    # Display row 3 numbers (3-36)
+    st.write("**Row 3:** 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36")
+    
+    row3_betting = st.columns(4)
+    
+    with row3_betting[0]:
+        if st.button("Bet on 3", key="btn_3", use_container_width=True):
+            place_bet('straight', 3)
+        if st.button("Bet on 6", key="btn_6", use_container_width=True):
+            place_bet('straight', 6)
+        if st.button("Bet on 9", key="btn_9", use_container_width=True):
+            place_bet('straight', 9)
+    
+    with row3_betting[1]:
+        if st.button("Bet on 12", key="btn_12", use_container_width=True):
+            place_bet('straight', 12)
+        if st.button("Bet on 15", key="btn_15", use_container_width=True):
+            place_bet('straight', 15)
+        if st.button("Bet on 18", key="btn_18", use_container_width=True):
+            place_bet('straight', 18)
+    
+    with row3_betting[2]:
+        if st.button("Bet on 21", key="btn_21", use_container_width=True):
+            place_bet('straight', 21)
+        if st.button("Bet on 24", key="btn_24", use_container_width=True):
+            place_bet('straight', 24)
+        if st.button("Bet on 27", key="btn_27", use_container_width=True):
+            place_bet('straight', 27)
+    
+    with row3_betting[3]:
+        if st.button("Bet on 30", key="btn_30", use_container_width=True):
+            place_bet('straight', 30)
+        if st.button("Bet on 33", key="btn_33", use_container_width=True):
+            place_bet('straight', 33)
+        if st.button("Bet on 36", key="btn_36", use_container_width=True):
+            place_bet('straight', 36)
     
     # Outside bets section
-    outside_container = st.container()
+    st.write("### Outside Bets")
     
-    with outside_container:
-        st.write("### Outside Bets")
-        
-        outside_cols = st.columns(5)
-        
-        # Red or Black
-        with outside_cols[0]:
-            st.write("**Red or Black (1:1)**")
-            if st.button("Red", key="btn_red", use_container_width=True):
-                place_bet('color', 'red')
-            if st.button("Black", key="btn_black", use_container_width=True):
-                place_bet('color', 'black')
-        
-        # Even or Odd
-        with outside_cols[1]:
-            st.write("**Even or Odd (1:1)**")
-            if st.button("Even", key="btn_even", use_container_width=True):
-                place_bet('parity', 'even')
-            if st.button("Odd", key="btn_odd", use_container_width=True):
-                place_bet('parity', 'odd')
-        
-        # High or Low
-        with outside_cols[2]:
-            st.write("**High or Low (1:1)**")
-            if st.button("High (19-36)", key="btn_high", use_container_width=True):
-                place_bet('range', 'high')
-            if st.button("Low (1-18)", key="btn_low", use_container_width=True):
-                place_bet('range', 'low')
-        
-        # Advanced bets
-        with outside_cols[3]:
-            st.write("**Inside Bets**")
-            if st.button("Street bet", key="btn_street", use_container_width=True,
-                       help="Bet on 3 numbers in a row (pays 11:1)"):
-                street_row = st.number_input("Row number (1-12):", min_value=1, max_value=12, value=1, key="street_row")
-                
-                # Calculate the numbers in this street for preview
-                start_number = (street_row - 1) * 3 + 1
-                covered_numbers = [start_number, start_number + 1, start_number + 2]
-                
-                # Show the numbers this bet covers
-                st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
-                
-                if st.button("Place Street Bet", key="place_street"):
-                    place_bet('street', street_row)
+    # Create 3 rows of outside bets to avoid nesting
+    outside_row1 = st.columns(3)
+    
+    with outside_row1[0]:
+        st.write("**Red or Black (1:1)**")
+        if st.button("Red", key="btn_red", use_container_width=True):
+            place_bet('color', 'red')
+        if st.button("Black", key="btn_black", use_container_width=True):
+            place_bet('color', 'black')
+    
+    with outside_row1[1]:
+        st.write("**Even or Odd (1:1)**")
+        if st.button("Even", key="btn_even", use_container_width=True):
+            place_bet('parity', 'even')
+        if st.button("Odd", key="btn_odd", use_container_width=True):
+            place_bet('parity', 'odd')
+    
+    with outside_row1[2]:
+        st.write("**High or Low (1:1)**")
+        if st.button("High (19-36)", key="btn_high", use_container_width=True):
+            place_bet('range', 'high')
+        if st.button("Low (1-18)", key="btn_low", use_container_width=True):
+            place_bet('range', 'low')
+    
+    # Row for Dozens
+    st.write("### Dozen Bets (2:1)")
+    dozen_betting = st.columns(3)
+    
+    for idx, dozen in enumerate(["1st Dozen (1-12)", "2nd Dozen (13-24)", "3rd Dozen (25-36)"]):
+        with dozen_betting[idx]:
+            # Calculate the dozen range
+            start_num = (idx * 12) + 1
+            end_num = start_num + 11
             
-            if st.button("Corner bet", key="btn_corner", use_container_width=True,
-                       help="Bet on 4 numbers in a corner (pays 8:1)"):
-                corner_num = st.number_input("Corner number (1-22):", min_value=1, max_value=22, value=1, key="corner_num")
-                
-                # Calculate the four corner numbers
-                row = (corner_num - 1) // 11
-                col = (corner_num - 1) % 11
-                start_number = row * 3 + col + 1
-                covered_numbers = [
-                    start_number, 
-                    start_number + 1, 
-                    start_number + 3, 
-                    start_number + 4
-                ]
-                
+            if st.button(dozen, key=f"btn_dozen_{idx+1}", use_container_width=True,
+                       help=f"Dozen bet on {dozen} (pays 2:1)"):
                 # Show the numbers this bet covers
-                st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
-                
-                if st.button("Place Corner Bet", key="place_corner"):
-                    place_bet('corner', corner_num)
+                st.info(f"Dozen {idx+1} covers: {start_num}-{end_num}")
+                place_bet('dozen', idx+1)
+    
+    # Row for Columns
+    st.write("### Column Bets (2:1)")
+    column_betting = st.columns(3)
+    
+    for idx, col_name in enumerate(["1st Column", "2nd Column", "3rd Column"]):
+        with column_betting[idx]:
+            # Calculate which numbers this column covers
+            column_numbers = list(range(idx+1, 37, 3))
+            column_numbers_str = ", ".join(str(n) for n in column_numbers)
+            
+            if st.button(col_name, key=f"btn_column_{idx+1}", use_container_width=True,
+                       help=f"Column bet on {col_name} (pays 2:1)"):
+                st.info(f"Column {idx+1} covers: {column_numbers_str}")
+                place_bet('column', idx+1)
+    
+    # Special bets section
+    st.write("### Special Bets")
+    special_bets = st.columns(2)
+    
+    # Street bet
+    with special_bets[0]:
+        st.write("**Street Bet (11:1)**")
+        street_row = st.number_input("Row number (1-12):", min_value=1, max_value=12, value=1, key="street_row")
         
-        # Six Line
-        with outside_cols[4]:
-            st.write("**Six Line Bet**")
-            if st.button("Six Line bet", key="btn_six_line", use_container_width=True,
-                       help="Bet on 6 numbers across 2 rows (pays 5:1)"):
-                line_num = st.number_input("Line number (1-11):", min_value=1, max_value=11, value=1, key="line_num")
-                
-                # Calculate the numbers in this line for preview
-                start_number = (line_num - 1) * 3 + 1
-                end_number = start_number + 5
-                covered_numbers = list(range(start_number, end_number + 1))
-                
-                # Show the numbers this bet covers
-                st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
-                
-                if st.button("Place Six Line Bet", key="place_six_line"):
-                    place_bet('six_line', line_num)
+        # Calculate the numbers in this street for preview
+        start_number = (street_row - 1) * 3 + 1
+        covered_numbers = [start_number, start_number + 1, start_number + 2]
+        
+        # Show the numbers this bet covers
+        st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
+        
+        if st.button("Place Street Bet", key="place_street", use_container_width=True):
+            place_bet('street', street_row)
+    
+    # Corner bet 
+    with special_bets[1]:
+        st.write("**Corner Bet (8:1)**")
+        corner_num = st.number_input("Corner number (1-22):", min_value=1, max_value=22, value=1, key="corner_num")
+        
+        # Calculate the four corner numbers
+        row = (corner_num - 1) // 11
+        col = (corner_num - 1) % 11
+        start_number = row * 3 + col + 1
+        covered_numbers = [
+            start_number, 
+            start_number + 1, 
+            start_number + 3, 
+            start_number + 4
+        ]
+        
+        # Show the numbers this bet covers
+        st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
+        
+        if st.button("Place Corner Bet", key="place_corner", use_container_width=True):
+            place_bet('corner', corner_num)
+    
+    # Six Line bet
+    st.write("**Six Line Bet (5:1)**")
+    line_num = st.number_input("Line number (1-11):", min_value=1, max_value=11, value=1, key="line_num")
+    
+    # Calculate the numbers in this line for preview
+    start_number = (line_num - 1) * 3 + 1
+    end_number = start_number + 5
+    covered_numbers = list(range(start_number, end_number + 1))
+    
+    # Show the numbers this bet covers
+    st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
+    
+    if st.button("Place Six Line Bet", key="place_six_line", use_container_width=True):
+        place_bet('six_line', line_num)
 
 def create_chip_selector():
     """Create a selector for betting chips."""
