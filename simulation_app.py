@@ -920,7 +920,7 @@ def main():
         st.header("Balance")
         starting_balance = st.number_input(
             "Starting Balance",
-            min_value=100.0,
+            min_value=0.0,
             max_value=10000.0,
             value=1000.0,
             step=100.0
