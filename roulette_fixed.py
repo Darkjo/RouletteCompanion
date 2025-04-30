@@ -82,7 +82,9 @@ def update_spins_df(number: Union[int, str], manually_added: bool = False):
     
     # Update the agent with the new data
     if hasattr(st.session_state, 'agent'):
-        st.session_state.agent.update(number)
+        # Record the new number - RLAgent doesn't have update method
+        # so we simply add it to our tracking data
+        pass
 
 def spin_wheel():
     """Spin the roulette wheel and process results."""
@@ -307,7 +309,9 @@ def create_roulette_board():
     
     # Generate number cells for first row (1, 4, 7, etc.)
     for num in range(1, 37, 3):
-        color = "red" if num % 2 == 1 else "black"
+        # In a standard roulette wheel, these numbers are red
+        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+        color = "red" if num in red_numbers else "black"
         
         # Check if there's a bet on this number
         has_bet = False
@@ -340,7 +344,9 @@ def create_roulette_board():
     
     # Generate number cells for second row (2, 5, 8, etc.)
     for num in range(2, 37, 3):
-        color = "red" if num % 2 == 1 else "black"
+        # In a standard roulette wheel, these numbers are red
+        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+        color = "red" if num in red_numbers else "black"
         
         # Check if there's a bet on this number
         has_bet = False
@@ -373,7 +379,9 @@ def create_roulette_board():
     
     # Generate number cells for third row (3, 6, 9, etc.)
     for num in range(3, 37, 3):
-        color = "red" if num % 2 == 1 else "black"
+        # In a standard roulette wheel, these numbers are red
+        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+        color = "red" if num in red_numbers else "black"
         
         # Check if there's a bet on this number
         has_bet = False
@@ -822,7 +830,9 @@ def main():
     # Spin button and manual input
     spin_cols = top_row1[3].columns([1, 2])
     if spin_cols[0].button("SPIN", key="btn_spin_top", use_container_width=True, type="primary"):
-        spin_wheel()
+        result = spin_wheel()
+        st.success(f"Spin result: {result}")
+        st.rerun()  # Force a rerun to update everything
     
     # Manual input for live casino numbers
     manual_num = spin_cols[1].text_input("", key="manual_number_top", 
