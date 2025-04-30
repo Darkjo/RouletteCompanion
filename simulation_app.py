@@ -264,459 +264,167 @@ def create_roulette_board():
     # Main title
     st.write("## Roulette Board")
     
-    # Create a visually interactive, HTML-based roulette board that mimics actual roulette table
+    # Create a clean and simplified roulette board with traditional coloring
     html_board = """
     <style>
-        /* Base styles for the roulette board */
-        .roulette-table {
-            font-family: sans-serif;
+        .roulette-board {
             margin: 20px auto;
             width: 100%;
             max-width: 800px;
+            background-color: #006400;
             border: 2px solid #333;
-            border-radius: 5px;
-            background-color: #006400; /* Dark green background */
+            padding: 10px;
             color: white;
-            position: relative;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            font-family: sans-serif;
         }
         
-        /* Styles for number grid layout */
-        .number-grid {
+        .roulette-grid {
             display: grid;
             grid-template-columns: auto repeat(12, 1fr);
-            width: 100%;
-            border-collapse: collapse;
-            border-spacing: 0;
+            gap: 2px;
         }
         
-        /* Zero pocket section */
-        .zero-section {
+        .zero-cell {
             grid-column: 1;
             grid-row: 1 / span 3;
             background-color: #006400;
-            border-right: 2px solid white;
-            display: flex;
-            flex-direction: column;
-            text-align: center;
-            justify-content: space-around;
-        }
-        
-        .zero-pocket {
-            background-color: #006400; /* Green */
-            color: white;
-            font-weight: bold;
             border: 1px solid white;
-            padding: 10px 5px;
-            height: 40px;
             display: flex;
-            align-items: center;
             justify-content: center;
-            margin: 5px;
+            align-items: center;
+            font-weight: bold;
+            padding: 5px;
         }
         
-        /* Individual number cells */
         .number-cell {
-            border: 1px solid white;
-            text-align: center;
-            padding: 10px 0;
-            font-weight: bold;
-            position: relative;
             height: 40px;
             display: flex;
-            align-items: center;
             justify-content: center;
-            cursor: pointer;
-            width: 100%;
+            align-items: center;
+            font-weight: bold;
+            border: 1px solid white;
         }
         
-        .red {
-            background-color: #ff0000; /* Bright red to match the screenshot */
+        .red-cell {
+            background-color: #ff0000;
         }
         
-        .black {
-            background-color: #000000; /* Black */
+        .black-cell {
+            background-color: #000000;
         }
         
-        /* Outside bet sections */
-        .outside-bets {
+        .bet-markers {
             display: grid;
             grid-template-columns: repeat(6, 1fr);
-            width: 100%;
-            border-top: 2px solid white;
+            gap: 2px;
+            margin-top: 10px;
         }
         
         .dozen-bet {
-            grid-column: span 4;
+            grid-column: span 2;
             text-align: center;
-            padding: 8px 0;
+            padding: 10px;
+            background-color: #004080;
             border: 1px solid white;
-            font-weight: bold;
-            cursor: pointer;
+        }
+        
+        .outside-bet {
+            text-align: center;
+            padding: 10px;
+            border: 1px solid white;
+            background-color: #333;
         }
         
         .column-bet {
-            grid-column: 13;
-            grid-row: auto;
-            background-color: #006400;
-            border: 1px solid white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            height: 40px;
-        }
-        
-        .even-money-bet {
-            grid-column: span 2;
             text-align: center;
-            padding: 8px 0;
+            padding: 5px;
             border: 1px solid white;
-            font-weight: bold;
-            cursor: pointer;
+            background-color: #004080;
         }
         
-        /* Chip stylings for betting */
+        .bet-legend {
+            margin-top: 15px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+        
         .chip {
+            display: inline-block;
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            margin-left: 5px;
+            text-align: center;
             font-size: 10px;
-            font-weight: bold;
-            color: black;
-            z-index: 100;
-            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            line-height: 20px;
+            vertical-align: middle;
         }
         
-        .chip-white {
-            background-color: white;
-            border: 2px solid #333;
-        }
-        
-        .chip-red {
-            background-color: #c00;
-            border: 2px dashed white;
-        }
-        
-        .chip-blue {
-            background-color: #0073e6;
-            border: 2px solid white;
-        }
-        
-        .chip-green {
-            background-color: #00cc00;
-            border: 2px solid #333;
-        }
-        
-        .chip-black {
-            background-color: black;
-            border: 2px dashed white;
-            color: white;
-        }
-        
-        .chip-purple {
-            background-color: #9900cc;
-            border: 2px solid white;
-            color: white;
-        }
+        .white-chip { background-color: white; color: black; border: 1px solid #333; }
+        .red-chip { background-color: #d33; color: white; border: 1px solid white; }
+        .blue-chip { background-color: #33b; color: white; border: 1px solid white; }
+        .green-chip { background-color: #3b3; color: black; border: 1px solid #333; }
+        .black-chip { background-color: black; color: white; border: 1px solid white; }
     </style>
     
-    <div class="roulette-table">
-        <div class="number-grid">
-            <!-- Zero section -->
-            <div class="zero-section">
-    """
-    
-    # Add zero slots based on roulette type
-    if roulette_type == 'American':
-        html_board += """
-                <div class="zero-pocket">0</div>
-                <div class="zero-pocket">00</div>
-        """
-    else:
-        # European roulette with just one zero
-        has_bet_on_zero = False
-        bet_amount_on_zero = ""
-        chip_class_for_zero = "chip-white"
-        
-        # Check for bets on zero
-        for bet in st.session_state.simulator.active_bets:
-            if 0 in bet.numbers and len(bet.numbers) == 1:  # Straight bet on zero
-                has_bet_on_zero = True
-                bet_amount_on_zero = str(bet.amount)
-                # Choose chip color based on amount
-                if bet.amount <= 1:
-                    chip_class_for_zero = "chip-white"
-                elif bet.amount <= 5:
-                    chip_class_for_zero = "chip-red"
-                elif bet.amount <= 25:
-                    chip_class_for_zero = "chip-green"
-                elif bet.amount <= 100:
-                    chip_class_for_zero = "chip-black"
-                else:
-                    chip_class_for_zero = "chip-purple"
-                break
-        
-        # Show zero with chip if it has a bet
-        if has_bet_on_zero:
-            html_board += f"""
-                <div class="zero-pocket" style="height: 125px; position: relative;">
-                    0
-                    <div class="chip {chip_class_for_zero}" style="position: absolute; top: 5px; right: 5px;">${bet_amount_on_zero}</div>
-                    <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #ffc107; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">A</div>
-                </div>
-            """
-        else:
-            html_board += """
-                <div class="zero-pocket" style="height: 125px; position: relative;">
-                    0
-                    <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #ffc107; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">A</div>
-                </div>
-            """
-    
-    html_board += """
-            </div>
+    <div class="roulette-board">
+        <div class="roulette-grid">
+            <!-- Zero cell -->
+            <div class="zero-cell">0</div>
             
-            <!-- Numbers grid (3 rows, 12 columns) -->
+            <!-- Number grid - simple version with just colors matching the screenshot -->
     """
     
-    # Generate the 3x12 number grid
+    # Add the number cells with standard alternating colors (odds red, evens black)
     for row in range(3):
         for col in range(12):
             number = row + (col * 3) + 1
-            color = "red" if number in simulator.red_numbers else "black"
+            color_class = "red-cell" if number % 2 == 1 else "black-cell"
             
-            # Get any active straight bets for this number
-            has_straight_bet = False
+            # Check if there's a bet on this number
+            has_bet = False
             bet_amount = ""
-            chip_class = "chip-white"  # Default chip color
-            
-            # Check if this number has a straight bet on it
             for bet in st.session_state.simulator.active_bets:
-                if number in bet.numbers and len(bet.numbers) == 1:  # Straight bet
-                    has_straight_bet = True
+                if number in bet.numbers and len(bet.numbers) == 1:
+                    has_bet = True
                     bet_amount = str(bet.amount)
-                    # Choose chip color based on amount
-                    if bet.amount <= 1:
-                        chip_class = "chip-white"
-                    elif bet.amount <= 5:
-                        chip_class = "chip-red"
-                    elif bet.amount <= 25:
-                        chip_class = "chip-green"
-                    elif bet.amount <= 100:
-                        chip_class = "chip-black"
-                    else:
-                        chip_class = "chip-purple"
                     break
             
-            # Generate the cell with optional chip and bet type indicator
-            # We'll add A for straight bets directly on the number cells
-            # Using traditional roulette color pattern (alternating red/black) rather than European wheel pattern
-            traditional_color = "red" if (number % 2 == 1) else "black"  # Odd numbers are red, even numbers are black
-            html_board += f'<div class="number-cell {traditional_color}" style="position: relative;">{number}'
-            
-            # Add the straight bet indicator (A) if needed
-            if has_straight_bet:
-                html_board += f'<div class="chip {chip_class}">${bet_amount}</div>'
-                html_board += '<div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #ffc107; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">A</div>'
-            
-            # Add special indicators for other bet types if this number is covered
-            # We'll check if this number is part of any other bet types
-            
-            # Track if we've already found a bet type for this cell
-            has_other_bet = False
-            
-            # Check for split bets (B)
-            for bet in st.session_state.simulator.active_bets:
-                if number in bet.numbers and len(bet.numbers) == 2:  # Split bet
-                    position = "bottom-left"
-                    if has_other_bet:
-                        position = "bottom-right"  # Adjust position if already have a bet indicator
-                    
-                    html_board += f'<div style="position: absolute; {position}: 5px; font-size: 10px; background-color: #ff9800; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">B</div>'
-                    has_other_bet = True
-                    break
-            
-            # Check for street bets (C)
-            for bet in st.session_state.simulator.active_bets:
-                if number in bet.numbers and len(bet.numbers) == 3 and bet.bet_type == 'street':  # Street bet
-                    position = "bottom-left" if not has_other_bet else "bottom-right"
-                    
-                    html_board += f'<div style="position: absolute; {position}: 5px; font-size: 10px; background-color: #4caf50; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">C</div>'
-                    has_other_bet = True
-                    break
-            
-            # Check for corner bets (D)
-            for bet in st.session_state.simulator.active_bets:
-                if number in bet.numbers and len(bet.numbers) == 4 and bet.bet_type == 'corner':  # Corner bet
-                    position = "bottom-left" if not has_other_bet else "bottom-right"
-                    
-                    html_board += f'<div style="position: absolute; {position}: 5px; font-size: 10px; background-color: #2196f3; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">D</div>'
-                    has_other_bet = True
-                    break
-            
-            # Check for six line bets (F)
-            for bet in st.session_state.simulator.active_bets:
-                if number in bet.numbers and len(bet.numbers) == 6 and bet.bet_type == 'six_line':  # Six line bet
-                    position = "bottom-left" if not has_other_bet else "bottom-right"
-                    
-                    html_board += f'<div style="position: absolute; {position}: 5px; font-size: 10px; background-color: #e91e63; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">F</div>'
-                    has_other_bet = True
-                    break
-            
-            # Close the cell div
-            html_board += '</div>'
+            # Add chip indicator if there's a bet
+            if has_bet:
+                chip_display = f'<span class="chip white-chip">${bet_amount}</span>'
+                html_board += f'<div class="number-cell {color_class}">{number} {chip_display}</div>'
+            else:
+                html_board += f'<div class="number-cell {color_class}">{number}</div>'
     
-    # Add column bets
+    # Add column bets - these appear at the end of each row
     for col in range(3):
-        html_board += f'<div class="column-bet">2:1<br>{col+1}C</div>'
+        html_board += f'<div class="column-bet">2:1</div>'
     
-    # Close the number grid and start outside bets
+    # Complete the grid and add outside bets
     html_board += """
         </div>
         
-        <!-- Outside bets section -->
-        <div class="outside-bets">
+        <div class="bet-markers">
             <!-- Dozen bets -->
-    """
-    
-    # Check dozen bets and add chips if they exist
-    for idx in range(3):
-        dozen_has_bet = False
-        dozen_bet_amount = ""
-        dozen_chip_class = "chip-white"
-        
-        # Check if there's a bet on this dozen
-        for bet in st.session_state.simulator.active_bets:
-            if bet.bet_type == 'dozen' and bet.target == idx + 1:
-                dozen_has_bet = True
-                dozen_bet_amount = str(bet.amount)
-                # Choose chip color based on amount
-                if bet.amount <= 1:
-                    dozen_chip_class = "chip-white"
-                elif bet.amount <= 5:
-                    dozen_chip_class = "chip-red"
-                elif bet.amount <= 25:
-                    dozen_chip_class = "chip-green"
-                elif bet.amount <= 100:
-                    dozen_chip_class = "chip-black"
-                else:
-                    dozen_chip_class = "chip-purple"
-                break
-        
-        # Create dozen bet display
-        dozen_name = f"{idx+1}st Dozen (1-12)" if idx == 0 else f"{idx+1}nd Dozen (13-24)" if idx == 1 else f"{idx+1}rd Dozen (25-36)"
-        
-        if dozen_has_bet:
-            html_board += f"""
-            <div class="dozen-bet" style="position: relative;">
-                {dozen_name}
-                <div class="chip {dozen_chip_class}" style="position: absolute; top: 5px; right: 5px;">${dozen_bet_amount}</div>
-                <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #03a9f4; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">I</div>
-            </div>
-            """
-        else:
-            html_board += f"""
-            <div class="dozen-bet" style="position: relative;">
-                {dozen_name}
-                <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #03a9f4; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">I</div>
-            </div>
-            """
-    
-    # Now add even money bets with similar chip visualization
-    html_board += """
-            <!-- Even money bets -->
-    """
-    
-    # Even money bet names and their corresponding bet types and targets
-    even_money_bets = [
-        {"name": "1-18", "bet_type": "range", "target": "low", "marker": "K"},
-        {"name": "EVEN", "bet_type": "parity", "target": "even", "marker": "J"},
-        {"name": "RED", "bet_type": "color", "target": "red", "marker": "I"},
-        {"name": "BLACK", "bet_type": "color", "target": "black", "marker": "I"},
-        {"name": "ODD", "bet_type": "parity", "target": "odd", "marker": "J"},
-        {"name": "19-36", "bet_type": "range", "target": "high", "marker": "K"}
-    ]
-    
-    for bet_info in even_money_bets:
-        has_bet = False
-        bet_amount = ""
-        chip_class = "chip-white"
-        
-        # Check if there's a bet on this even money option
-        for bet in st.session_state.simulator.active_bets:
-            if bet.bet_type == bet_info["bet_type"] and bet.target == bet_info["target"]:
-                has_bet = True
-                bet_amount = str(bet.amount)
-                # Choose chip color based on amount
-                if bet.amount <= 1:
-                    chip_class = "chip-white"
-                elif bet.amount <= 5:
-                    chip_class = "chip-red"
-                elif bet.amount <= 25:
-                    chip_class = "chip-green"
-                elif bet.amount <= 100:
-                    chip_class = "chip-black"
-                else:
-                    chip_class = "chip-purple"
-                break
-        
-        # Create even money bet display
-        if has_bet:
-            html_board += f"""
-            <div class="even-money-bet" style="position: relative;">
-                {bet_info["name"]}
-                <div class="chip {chip_class}" style="position: absolute; top: 5px; right: 5px;">${bet_amount}</div>
-                <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #ff5722; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">{bet_info["marker"]}</div>
-            </div>
-            """
-        else:
-            html_board += f"""
-            <div class="even-money-bet" style="position: relative;">
-                {bet_info["name"]}
-                <div style="position: absolute; top: 5px; left: 5px; font-size: 10px; background-color: #ff5722; color: black; border-radius: 50%; width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;">{bet_info["marker"]}</div>
-            </div>
-            """
-    
-    # Close outside bets and add explanation
-    html_board += """
+            <div class="dozen-bet">1st Dozen (1-12)</div>
+            <div class="dozen-bet">2nd Dozen (13-24)</div>
+            <div class="dozen-bet">3rd Dozen (25-36)</div>
+            
+            <!-- Outside bets -->
+            <div class="outside-bet">1-18</div>
+            <div class="outside-bet">EVEN</div>
+            <div class="outside-bet">RED</div>
+            <div class="outside-bet">BLACK</div>
+            <div class="outside-bet">ODD</div>
+            <div class="outside-bet">19-36</div>
         </div>
         
-        <!-- Explanation of bet types -->
-        <div style="margin-top: 15px; font-size: 12px; color: white; text-align: center; padding: 5px; background-color: rgba(0,0,0,0.5);">
-            <p>A = Straight Bet (35:1) | B = Split Bet (17:1) | C = Street Bet (11:1) | D = Corner Bet (8:1)</p>
-            <p>E = Five Number Bet (6:1) | F = Six Line Bet (5:1) | G,H = Column Bet (2:1) | I = Dozen Bet (2:1)</p>
-            <p>J,K = Even Money Bet (1:1) - Red/Black, Even/Odd, 1-18/19-36</p>
-        </div>
-        
-        <!-- Chips Legend -->
-        <div style="margin-top: 5px; font-size: 12px; color: white; text-align: center; padding: 5px; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; gap: 20px;">
-            <div style="display: flex; align-items: center;">
-                <div class="chip chip-white" style="width: 15px; height: 15px; margin-right: 5px;">$1</div>
-                <span>$1 chip</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-                <div class="chip chip-red" style="width: 15px; height: 15px; margin-right: 5px;">$5</div>
-                <span>$5 chip</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-                <div class="chip chip-green" style="width: 15px; height: 15px; margin-right: 5px;">$25</div>
-                <span>$25 chip</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-                <div class="chip chip-black" style="width: 15px; height: 15px; margin-right: 5px;">$100</div>
-                <span>$100 chip</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-                <div class="chip chip-purple" style="width: 15px; height: 15px; margin-right: 5px;">$500</div>
-                <span>$500+ chip</span>
-            </div>
+        <div class="bet-legend">
+            <p><strong>Bet Types:</strong> A = Straight (35:1) | B = Split (17:1) | C = Street (11:1) | D = Corner (8:1) | E = Five Number (6:1)</p>
+            <p>F = Six Line (5:1) | G/H = Column (2:1) | I = Dozen (2:1) | J/K = Even Money (1:1)</p>
         </div>
     </div>
     """
