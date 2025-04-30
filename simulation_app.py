@@ -151,44 +151,60 @@ def spin_wheel():
 def place_bet(bet_type, *args):
     """Place a bet of the specified type."""
     chip_value = st.session_state.current_chip
+    bet_description = ""
     
     # Call the appropriate method based on bet type
     if bet_type == 'straight':
         number = args[0]
         success = st.session_state.simulator.add_straight_bet(number, chip_value)
+        bet_description = f"straight bet on number {number}"
     elif bet_type == 'split':
         num1, num2 = args
         success = st.session_state.simulator.add_split_bet(num1, num2, chip_value)
+        bet_description = f"split bet on numbers {num1} and {num2}"
     elif bet_type == 'street':
         row = args[0]
         success = st.session_state.simulator.add_street_bet(row, chip_value)
+        bet_description = f"street bet on row {row}"
     elif bet_type == 'corner':
         corner = args[0]
         success = st.session_state.simulator.add_corner_bet(corner, chip_value)
+        bet_description = f"corner bet on corner {corner}"
     elif bet_type == 'six_line':
         line = args[0]
         success = st.session_state.simulator.add_six_line_bet(line, chip_value)
+        bet_description = f"six line bet on line {line}"
     elif bet_type == 'top_line':
         success = st.session_state.simulator.add_top_line_bet(chip_value)
+        bet_description = "top line bet on 0, 00, 1, 2, 3"
     elif bet_type == 'color':
         color = args[0]
         success = st.session_state.simulator.add_color_bet(color, chip_value)
+        bet_description = f"bet on {color}"
     elif bet_type == 'parity':
         parity = args[0]
         success = st.session_state.simulator.add_parity_bet(parity, chip_value)
+        bet_description = f"bet on {parity} numbers"
     elif bet_type == 'range':
         range_type = args[0]
         success = st.session_state.simulator.add_range_bet(range_type, chip_value)
+        bet_description = f"bet on {range_type} range"
     elif bet_type == 'dozen':
         dozen = args[0]
         success = st.session_state.simulator.add_dozen_bet(dozen, chip_value)
+        bet_description = f"bet on {dozen}{'st' if dozen == 1 else 'nd' if dozen == 2 else 'rd'} dozen"
     elif bet_type == 'column':
         column = args[0]
         success = st.session_state.simulator.add_column_bet(column, chip_value)
+        bet_description = f"bet on {column}{'st' if column == 1 else 'nd' if column == 2 else 'rd'} column"
     else:
         success = False
     
-    if not success:
+    if success:
+        # Show a success message with bet details
+        chip_display = f"${chip_value:.2f}" if chip_value < 1 or chip_value != int(chip_value) else f"${int(chip_value)}"
+        st.success(f"Placed {chip_display} {bet_description}")
+    else:
         st.warning(f"Couldn't place bet. Check your balance!")
 
 def create_roulette_board():
@@ -359,6 +375,39 @@ def create_betting_controls():
     
     cols[1].metric("Total Bet", f"${total_bet:.2f}")
     cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
+    
+    # Clear bets button
+    if cols[3].button("CLEAR BETS", key="btn_clear_bets", use_container_width=True, 
+                      type="secondary", help="Clear all active bets"):
+        st.session_state.simulator.clear_bets()
+        st.success("All bets cleared!")
+    
+    # Display active bets if there are any
+    if st.session_state.simulator.active_bets:
+        st.write("### Active Bets")
+        
+        # Create a table to display the active bets
+        bet_data = []
+        for bet in st.session_state.simulator.active_bets:
+            # Format numbers for display
+            numbers_str = ", ".join(str(n) for n in bet.numbers) if len(bet.numbers) <= 6 else f"{len(bet.numbers)} numbers"
+            
+            # Format bet type for display
+            bet_type_display = bet.bet_type.replace('_', ' ').title()
+            if bet.name:
+                bet_type_display = bet.name
+            
+            bet_data.append({
+                "Bet Type": bet_type_display,
+                "Amount": f"${bet.amount:.2f}",
+                "Covers": numbers_str,
+                "Payout": f"{bet.get_payout_multiplier()}:1",
+                "Win Amount": f"${bet.get_winning_amount():.2f}"
+            })
+        
+        if bet_data:
+            bet_df = pd.DataFrame(bet_data)
+            st.dataframe(bet_df, use_container_width=True, hide_index=True)
     
     # Create two buttons - Spin or Enter Live Number
     spin_cols = st.columns(2)
