@@ -12,7 +12,6 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import random
 import time
-import json
 from PIL import Image
 import os
 import json
@@ -263,7 +262,23 @@ def create_roulette_board():
     roulette_type = simulator.roulette_type
     
     # Main title
-    st.write("## Roulette Board")
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.write("## Roulette Board")
+    
+    with col2:
+        # Add chip selection here for better UI organization
+        st.write("### Select Chip")
+        chip_values = [0.1, 0.5, 1, 5, 10, 25, 50, 100, 500]
+        selected_value = st.selectbox(
+            "Chip Value",
+            chip_values,
+            index=chip_values.index(st.session_state.current_chip) if st.session_state.current_chip in chip_values else 2,
+            format_func=lambda x: f"${x:.2f}" if x < 1 or x != int(x) else f"${int(x)}",
+            label_visibility="collapsed"
+        )
+        st.session_state.current_chip = selected_value
     
     # Create a fully interactive roulette board with clickable elements
     html_board = """
@@ -540,48 +555,67 @@ def create_roulette_board():
     </script>
     """
     
-    # Add a hidden container to store the click data
-    click_container = st.empty()
+    # Register an event handler for board clicks using a custom component
+    click_container = st.container()
     
-    # Create a callback for processing clicks
-    js_code = """
-    <script>
-        // Function to handle messages from iframes
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'bet_click') {
-                // Send the data to Streamlit
-                const data = {
-                    bet_type: event.data.bet,
-                    number: event.data.number
-                };
+    with click_container:
+        # Create a custom component for handling click events
+        # This uses Streamlit's component API directly
+        st.markdown("""
+        <script>
+        // Setup a global event listener for messages from the board
+        window.addEventListener('message', function(e) {
+            if (e.data && e.data.type === 'bet_click') {
+                // Log the click event
+                console.log('Received bet click:', e.data);
                 
-                // Use the Streamlit component API to update the value
-                if (window.Streamlit) {
-                    const json_data = JSON.stringify(data);
-                    window.Streamlit.setComponentValue(json_data);
-                }
+                // Create a form to submit the data back to the server
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = window.location.href;
+                
+                // Add hidden fields with the bet data
+                const betTypeField = document.createElement('input');
+                betTypeField.type = 'hidden';
+                betTypeField.name = 'bet_type';
+                betTypeField.value = e.data.bet;
+                form.appendChild(betTypeField);
+                
+                const numberField = document.createElement('input');
+                numberField.type = 'hidden';
+                numberField.name = 'bet_number';
+                numberField.value = e.data.number;
+                form.appendChild(numberField);
+                
+                // Submit the form to reload the page with the bet
+                document.body.appendChild(form);
+                form.submit();
             }
         });
-    </script>
-    """
+        </script>
+        """, unsafe_allow_html=True)
+        
+        # Store a hidden input for click parameter values
+        bet_type = st.text_input("Bet Type", key="bet_type", value="", label_visibility="collapsed")
+        bet_number = st.text_input("Bet Number", key="bet_number", value="", label_visibility="collapsed")
     
-    # Display the visual board and JavaScript handler
-    st.markdown(html_board, unsafe_allow_html=True)
-    st.components.v1.html(js_code, height=0)
+    # Create a callback for the interactive board
+    interactive_board_handler = st.components.v1.html(html_board, height=600)
     
-    # Handle component value changes
-    if st.session_state.get('component_value'):
+    # Process any clicks on the board (this happens on subsequent page loads)
+    # Get form parameters from URL (Streamlit doesn't expose this directly, so we check session state)
+    if 'bet_type' in st.session_state and st.session_state.bet_type:
+        bet_type = st.session_state.bet_type
+        number = st.session_state.bet_number
+        
+        # Place the bet based on the clicked element
         try:
-            data = json.loads(st.session_state.component_value)
-            bet_type = data.get('bet_type')
-            number = data.get('number')
-            
             if bet_type == 'straight':
-                place_bet('straight', number)
+                place_bet('straight', int(number))
             elif bet_type == 'column':
-                place_bet('column', number)
+                place_bet('column', int(number))
             elif bet_type == 'dozen':
-                place_bet('dozen', number)
+                place_bet('dozen', int(number))
             elif bet_type == 'color':
                 place_bet('color', number)
             elif bet_type == 'parity':
@@ -589,13 +623,14 @@ def create_roulette_board():
             elif bet_type == 'range':
                 place_bet('range', number)
                 
-            # Clear the component value to avoid repeated processing
-            st.session_state.component_value = None
+            # Clear the values after processing
+            st.session_state.bet_type = ""
+            st.session_state.bet_number = "" 
             
-            # Rerun to update the UI
+            # Force a rerun to update the UI with the new bet
             st.rerun()
         except Exception as e:
-            st.error(f"Error processing bet: {e}")
+            st.error(f"Error processing bet: {str(e)}")
     
     # Horizontal line separator
     st.markdown("---")
@@ -858,30 +893,8 @@ def create_roulette_board():
 
 def create_chip_selector():
     """Create a selector for betting chips."""
-    st.write("### Select Chip")
-    chip_cols = st.columns(9)
-    
-    chips = st.session_state.simulator.get_chip_options()
-    
-    for i, chip in enumerate(chips):
-        chip_color = get_chip_color(chip)
-        
-        # Format the chip value
-        if chip < 1:
-            display_value = f"${chip:.2f}"
-        else:
-            display_value = f"${int(chip)}" if chip == int(chip) else f"${chip:.2f}"
-        
-        # Create a chip button with appropriate styling
-        if chip_cols[i].button(
-            display_value, 
-            key=f"chip_{chip}",
-            help=f"Select ${chip} chip",
-            use_container_width=True,
-            # Style based on whether this is the currently selected chip
-            type="primary" if st.session_state.current_chip == chip else "secondary"
-        ):
-            st.session_state.current_chip = chip
+    # This function is integrated into create_roulette_board for better UI organization
+    pass
 
 def create_betting_controls():
     """Create controls for betting and spinning."""
@@ -1456,14 +1469,11 @@ def main():
         table_rec_cols = st.columns([2, 1])
         
         with table_rec_cols[0]:
+            # Roulette board (includes chip selection)
+            create_roulette_board()
+            
             # Betting controls
             create_betting_controls()
-            
-            # Chip selector
-            create_chip_selector()
-            
-            # Roulette board
-            create_roulette_board()
             
             # Spin history
             create_spin_history_display()
