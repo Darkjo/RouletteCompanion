@@ -314,22 +314,67 @@ def create_roulette_board():
             # Main number grid (3 rows by 12 columns)
             st.write("### Number Grid")
             
-            # Create the number grid with 3 rows
+            # Create a visual representation of the roulette grid using HTML
+            html_grid = """
+            <style>
+                .roulette-grid {
+                    display: grid;
+                    grid-template-columns: repeat(12, 1fr);
+                    gap: 4px;
+                    margin-bottom: 16px;
+                }
+                .number-cell {
+                    padding: 10px 0;
+                    text-align: center;
+                    color: white;
+                    font-weight: bold;
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+            </style>
+            <div class="roulette-grid">
+            """
+            
+            # Generate the HTML for the grid
             for row in range(3):
-                number_cols = st.columns(12)
+                for col in range(12):
+                    number = row + (col * 3) + 1
+                    color = "red" if number in simulator.red_numbers else "black"
+                    html_grid += f'<div class="number-cell" style="background-color: {color};">{number}</div>'
+            
+            html_grid += "</div>"
+            
+            # Display the grid
+            st.markdown(html_grid, unsafe_allow_html=True)
+            
+            # Create separate buttons for betting on specific numbers - arranged in rows
+            for row in range(3):
+                row_text = f"Row {row+1}: "
+                row_buttons = []
                 
                 for col in range(12):
-                    # Calculate the number at this position
                     number = row + (col * 3) + 1
-                    
-                    # Determine the color
-                    color = "red" if number in simulator.red_numbers else "black"
-                    
-                    # Create a button for the number
-                    if number_cols[col].button(f"{number}", key=f"btn_{number}", 
-                                           use_container_width=True,
-                                           help=f"Straight bet on {number}"):
-                        place_bet('straight', number)
+                    row_buttons.append(f"{number}")
+                
+                st.write(f"**{row_text}** {', '.join(row_buttons)}")
+                
+                # Create 6 buttons in each row (to avoid too many columns)
+                bet_cols = st.columns(6)
+                for i in range(6):
+                    # First half of the numbers
+                    num1 = row + (i * 3) + 1
+                    if bet_cols[i].button(f"Bet on {num1}", key=f"btn_{num1}", 
+                                      help=f"Straight bet on {num1}"):
+                        place_bet('straight', num1)
+                
+                # Second set of 6 buttons
+                bet_cols2 = st.columns(6)
+                for i in range(6):
+                    # Second half of the numbers
+                    num2 = row + ((i+6) * 3) + 1
+                    if bet_cols2[i].button(f"Bet on {num2}", key=f"btn_{num2}_2", 
+                                       help=f"Straight bet on {num2}"):
+                        place_bet('straight', num2)
             
             # Add row for dozens
             dozens_cols = st.columns(3)
