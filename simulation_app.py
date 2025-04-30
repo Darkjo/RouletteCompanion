@@ -12,6 +12,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import random
 import time
+import json
 from PIL import Image
 import os
 import json
@@ -264,100 +265,148 @@ def create_roulette_board():
     # Main title
     st.write("## Roulette Board")
     
-    # Use simple HTML table approach to avoid comments showing up
+    # Create a fully interactive roulette board with clickable elements
     html_board = """
     <style>
-        /* Table-based roulette styling */
-        .roulette-table {
-            border-collapse: collapse;
+        .roulette-board {
             width: 100%;
             max-width: 800px;
             margin: 0 auto;
+            padding: 20px;
             background-color: #006400;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
             color: white;
-            font-family: sans-serif;
-            border: 3px solid #333;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
         
-        .zero-cell {
-            background-color: #006400;
-            text-align: center;
+        .board-grid {
+            display: grid;
+            grid-template-columns: 50px repeat(12, 1fr);
+            grid-template-rows: repeat(3, 60px);
+            gap: 3px;
+            margin-bottom: 10px;
+        }
+        
+        .number {
+            display: flex;
+            justify-content: center;
+            align-items: center;
             font-weight: bold;
-            width: 40px;
-            border: 1px solid white;
-            height: 120px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.1s ease;
         }
         
-        .number-cell {
-            width: 40px;
-            height: 40px;
-            text-align: center;
+        .number:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+        
+        .red { background-color: #ff0000; }
+        .black { background-color: #000; }
+        .green { background-color: #006400; }
+        
+        .zero {
+            grid-row: 1 / span 3;
+            grid-column: 1;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             font-weight: bold;
+            font-size: 20px;
             border: 1px solid white;
+            cursor: pointer;
         }
         
-        .red-cell {
-            background-color: #ff0000;
+        .zero:hover {
+            background-color: #008800;
         }
         
-        .black-cell {
-            background-color: #000000;
-        }
-        
-        .column-cell {
+        .column-bet {
             background-color: #0066cc;
-            text-align: center;
-            border: 1px solid white;
-            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
         }
         
-        .dozens-row td {
-            background-color: #0066cc;
-            text-align: center;
-            border: 1px solid white;
-            height: 40px;
+        .column-bet:hover {
+            background-color: #0088ff;
         }
         
-        .outside-row td {
-            background-color: #333;
-            text-align: center;
-            border: 1px solid white;
-            height: 40px;
+        .outside-bets {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
         }
         
-        .bet-legend {
-            margin-top: 15px;
-            background-color: rgba(0,0,0,0.5);
+        .dozen-bets {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .outside-bet, .dozen-bet {
             padding: 10px;
             text-align: center;
+            background-color: #333;
             border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .outside-bet:hover, .dozen-bet:hover {
+            background-color: #555;
+        }
+        
+        .dozen-bet {
+            background-color: #0066cc;
         }
         
         .chip {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            margin-left: 3px;
-            line-height: 16px;
-            font-size: 8px;
-            text-align: center;
+            font-size: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px dashed gold;
             background-color: white;
             color: black;
-            border: 1px solid #333;
+            font-weight: bold;
+        }
+        
+        .bet-types {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-size: 12px;
+            text-align: center;
         }
     </style>
     
-    <table class="roulette-table">
-        <tr>
-            <td rowspan="3" class="zero-cell">0</td>
+    <div class="roulette-board">
+        <div class="board-grid">
+            <!-- Zero pocket -->
+            <div class="zero green" onclick="window.parent.postMessage({type: 'bet_click', bet: 'straight', number: 0}, '*')">0</div>
     """
     
-    # Add the first row - numbers 1, 4, 7, etc.
-    html_board += "<tr>"
+    # Generate number cells for first row (1, 4, 7, etc.)
     for num in range(1, 37, 3):
-        # Determine cell color (odd=red, even=black)
-        color_class = "red-cell" if num % 2 == 1 else "black-cell"
+        color = "red" if num % 2 == 1 else "black"
         
         # Check if there's a bet on this number
         has_bet = False
@@ -368,20 +417,29 @@ def create_roulette_board():
                 bet_amount = str(bet.amount)
                 break
         
-        # Add chip indicator if there's a bet
+        # Add cell with or without chip
         if has_bet:
-            html_board += f'<td class="number-cell {color_class}">{num}<span class="chip">${bet_amount}</span></td>'
+            html_board += f"""
+            <div class="number {color}" onclick="window.parent.postMessage({{type: 'bet_click', bet: 'straight', number: {num}}}, '*')">
+                {num}
+                <div class="chip">${bet_amount}</div>
+            </div>
+            """
         else:
-            html_board += f'<td class="number-cell {color_class}">{num}</td>'
+            html_board += f"""
+            <div class="number {color}" onclick="window.parent.postMessage({{type: 'bet_click', bet: 'straight', number: {num}}}, '*')">
+                {num}
+            </div>
+            """
     
-    # Add column bet cell
-    html_board += '<td class="column-cell">2:1</td></tr>'
+    # Add first column bet
+    html_board += """
+    <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 1}, '*')">2:1</div>
+    """
     
-    # Add the second row - numbers 2, 5, 8, etc.
-    html_board += "<tr>"
+    # Generate number cells for second row (2, 5, 8, etc.)
     for num in range(2, 37, 3):
-        # Determine cell color (odd=red, even=black)
-        color_class = "red-cell" if num % 2 == 1 else "black-cell"
+        color = "red" if num % 2 == 1 else "black"
         
         # Check if there's a bet on this number
         has_bet = False
@@ -392,20 +450,29 @@ def create_roulette_board():
                 bet_amount = str(bet.amount)
                 break
         
-        # Add chip indicator if there's a bet
+        # Add cell with or without chip
         if has_bet:
-            html_board += f'<td class="number-cell {color_class}">{num}<span class="chip">${bet_amount}</span></td>'
+            html_board += f"""
+            <div class="number {color}" onclick="window.parent.postMessage({{type: 'bet_click', bet: 'straight', number: {num}}}, '*')">
+                {num}
+                <div class="chip">${bet_amount}</div>
+            </div>
+            """
         else:
-            html_board += f'<td class="number-cell {color_class}">{num}</td>'
+            html_board += f"""
+            <div class="number {color}" onclick="window.parent.postMessage({{type: 'bet_click', bet: 'straight', number: {num}}}, '*')">
+                {num}
+            </div>
+            """
     
-    # Add column bet cell
-    html_board += '<td class="column-cell">2:1</td></tr>'
+    # Add second column bet
+    html_board += """
+    <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 2}, '*')">2:1</div>
+    """
     
-    # Add the third row - numbers 3, 6, 9, etc.
-    html_board += "<tr>"
+    # Generate number cells for third row (3, 6, 9, etc.)
     for num in range(3, 37, 3):
-        # Determine cell color (odd=red, even=black)
-        color_class = "red-cell" if num % 2 == 1 else "black-cell"
+        color = "red" if num % 2 == 1 else "black"
         
         # Check if there's a bet on this number
         has_bet = False
@@ -416,50 +483,119 @@ def create_roulette_board():
                 bet_amount = str(bet.amount)
                 break
         
-        # Add chip indicator if there's a bet
+        # Add cell with or without chip
         if has_bet:
-            html_board += f'<td class="number-cell {color_class}">{num}<span class="chip">${bet_amount}</span></td>'
+            html_board += f"""
+            <div class="number {color}" onclick="window.parent.postMessage({{type: 'bet_click', bet: 'straight', number: {num}}}, '*')">
+                {num}
+                <div class="chip">${bet_amount}</div>
+            </div>
+            """
         else:
-            html_board += f'<td class="number-cell {color_class}">{num}</td>'
+            html_board += f"""
+            <div class="number {color}" onclick="window.parent.postMessage({{type: 'bet_click', bet: 'straight', number: {num}}}, '*')">
+                {num}
+            </div>
+            """
     
-    # Add column bet cell
-    html_board += '<td class="column-cell">2:1</td></tr>'
-    
-    # Add dozens row
+    # Add third column bet
     html_board += """
-        <tr class="dozens-row">
-            <td colspan="4">1st Dozen (1-12)</td>
-            <td colspan="4">2nd Dozen (13-24)</td>
-            <td colspan="4">3rd Dozen (25-36)</td>
-            <td></td>
-        </tr>
+    <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 3}, '*')">2:1</div>
     """
     
-    # Add outside bets rows (2 rows with 3 bets each)
+    # Close the board grid
     html_board += """
-        <tr class="outside-row">
-            <td colspan="2">1-18</td>
-            <td colspan="2">EVEN</td>
-            <td colspan="2">RED</td>
-            <td colspan="2">BLACK</td>
-            <td colspan="2">ODD</td>
-            <td colspan="2">19-36</td>
-            <td></td>
-        </tr>
-    """
-    
-    # Close the table and add bet legend
-    html_board += """
-    </table>
-    
-    <div class="bet-legend">
-        <p><strong>Bet Types:</strong> A = Straight (35:1) | B = Split (17:1) | C = Street (11:1) | D = Corner (8:1) | E = Five Number (6:1)</p>
-        <p>F = Six Line (5:1) | G/H = Column (2:1) | I = Dozen (2:1) | J/K = Even Money (1:1)</p>
+        </div>
+        
+        <!-- Dozen bets -->
+        <div class="dozen-bets">
+            <div class="dozen-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'dozen', number: 1}, '*')">1st Dozen (1-12)</div>
+            <div class="dozen-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'dozen', number: 2}, '*')">2nd Dozen (13-24)</div>
+            <div class="dozen-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'dozen', number: 3}, '*')">3rd Dozen (25-36)</div>
+        </div>
+        
+        <!-- Outside bets -->
+        <div class="outside-bets">
+            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'range', number: 'low'}, '*')">1-18</div>
+            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'parity', number: 'even'}, '*')">EVEN</div>
+            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'color', number: 'red'}, '*')">RED</div>
+            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'color', number: 'black'}, '*')">BLACK</div>
+            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'parity', number: 'odd'}, '*')">ODD</div>
+            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'range', number: 'high'}, '*')">19-36</div>
+        </div>
+        
+        <!-- Bet types legend -->
+        <div class="bet-types">
+            <p><strong>Bet Types:</strong> A = Straight (35:1) | B = Split (17:1) | C = Street (11:1) | D = Corner (8:1) | E = Five Number (6:1)</p>
+            <p>F = Six Line (5:1) | G/H = Column (2:1) | I = Dozen (2:1) | J/K = Even Money (1:1)</p>
+        </div>
     </div>
+    
+    <script>
+        // Listen for bet clicks from the Streamlit parent frame
+        window.addEventListener('message', function(event) {
+            // Handle the message here
+            console.log('Received message:', event.data);
+        });
+    </script>
     """
     
-    # Display the visual board
+    # Add a hidden container to store the click data
+    click_container = st.empty()
+    
+    # Create a callback for processing clicks
+    js_code = """
+    <script>
+        // Function to handle messages from iframes
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'bet_click') {
+                // Send the data to Streamlit
+                const data = {
+                    bet_type: event.data.bet,
+                    number: event.data.number
+                };
+                
+                // Use the Streamlit component API to update the value
+                if (window.Streamlit) {
+                    const json_data = JSON.stringify(data);
+                    window.Streamlit.setComponentValue(json_data);
+                }
+            }
+        });
+    </script>
+    """
+    
+    # Display the visual board and JavaScript handler
     st.markdown(html_board, unsafe_allow_html=True)
+    st.components.v1.html(js_code, height=0)
+    
+    # Handle component value changes
+    if st.session_state.get('component_value'):
+        try:
+            data = json.loads(st.session_state.component_value)
+            bet_type = data.get('bet_type')
+            number = data.get('number')
+            
+            if bet_type == 'straight':
+                place_bet('straight', number)
+            elif bet_type == 'column':
+                place_bet('column', number)
+            elif bet_type == 'dozen':
+                place_bet('dozen', number)
+            elif bet_type == 'color':
+                place_bet('color', number)
+            elif bet_type == 'parity':
+                place_bet('parity', number)
+            elif bet_type == 'range':
+                place_bet('range', number)
+                
+            # Clear the component value to avoid repeated processing
+            st.session_state.component_value = None
+            
+            # Rerun to update the UI
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error processing bet: {e}")
     
     # Horizontal line separator
     st.markdown("---")
