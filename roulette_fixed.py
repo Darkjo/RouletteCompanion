@@ -98,13 +98,10 @@ def spin_wheel():
     details = st.session_state.simulator.get_last_result_details()
     
     # Track win/loss for analyzing strategy performance
-    # Calculate net winnings - total of win_amounts minus the total bet
-    net_winnings = 0
-    for bet_result in details['bet_results']:
-        if bet_result['won']:
-            net_winnings += bet_result['win_amount']
-        net_winnings -= bet_result['bet_amount']  # Subtract the bet amount
-
+    # Get the winnings directly from the details
+    net_winnings = details.get('winnings', 0)
+    
+    # Record in session history
     st.session_state.win_history.append({
         'number': result,
         'winnings': net_winnings,
@@ -112,31 +109,26 @@ def spin_wheel():
     })
     
     # Record strategy performance if agent recommendation was followed
-    if hasattr(st.session_state, 'agent') and details['bets_won'] + details['bets_lost'] > 0:
+    if hasattr(st.session_state, 'agent') and hasattr(st.session_state.agent, 'recent_recommendations'):
         # Get the most recent recommendation
         recent_recs = st.session_state.agent.recent_recommendations
         if recent_recs:
+            # Simplified tracking for strategy performance
+            # Since we don't have access to individual bet results in the current format
+            # We'll track overall wins/losses for each strategy
             for strat_name, rec_details in recent_recs.items():
                 if strat_name not in st.session_state.strategy_performance:
                     st.session_state.strategy_performance[strat_name] = {
                         'wins': 0, 'losses': 0, 'profit': 0
                     }
                 
-                # Check if the recommended bet won
-                recommended_bet_type = rec_details.get('bet_type')
-                recommended_bet_value = rec_details.get('bet_value')
-                
-                if recommended_bet_type and recommended_bet_value:
-                    for bet_info in details['bet_results']:
-                        if (bet_info['bet_type'] == recommended_bet_type and 
-                            str(bet_info['bet_value']) == str(recommended_bet_value)):
-                            
-                            if bet_info['won']:
-                                st.session_state.strategy_performance[strat_name]['wins'] += 1
-                                st.session_state.strategy_performance[strat_name]['profit'] += bet_info['win_amount']
-                            else:
-                                st.session_state.strategy_performance[strat_name]['losses'] += 1
-                                st.session_state.strategy_performance[strat_name]['profit'] -= bet_info['bet_amount']
+                # If we have a net win, count it as a win for the strategy
+                if net_winnings > 0:
+                    st.session_state.strategy_performance[strat_name]['wins'] += 1
+                    st.session_state.strategy_performance[strat_name]['profit'] += net_winnings
+                elif net_winnings < 0:
+                    st.session_state.strategy_performance[strat_name]['losses'] += 1
+                    st.session_state.strategy_performance[strat_name]['profit'] += net_winnings
     
     # Show the result
     return result
@@ -445,24 +437,23 @@ def create_roulette_board():
     </div>
     
     <script>
-        // Enhanced message handler with better debugging
+        // Enhanced message handler with better reliability
         function placeBet(betType, number) {
-            console.log('Sending bet to parent:', betType, number);
+            console.log('Placing bet:', betType, number);
             
             try {
-                // First try the standard postMessage approach
-                window.parent.postMessage({
-                    type: 'bet_click',
-                    bet: betType,
-                    number: number
-                }, '*');
-                
-                // As a fallback, also manually create and submit a form
+                // Create a form and submit it directly to Streamlit
+                // This bypasses all communication issues
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = window.location.href;
                 
-                // Add hidden fields with the bet data
+                // Create a special field that Streamlit will recognize
+                const formData = new FormData();
+                formData.append('bet_type', betType);
+                formData.append('bet_number', number);
+                
+                // Add hidden fields for the form submission
                 const betTypeField = document.createElement('input');
                 betTypeField.type = 'hidden';
                 betTypeField.name = 'bet_type';
@@ -475,11 +466,15 @@ def create_roulette_board():
                 numberField.value = number;
                 form.appendChild(numberField);
                 
-                // Submit the form to reload the page with the bet
+                // Submit the form
                 document.body.appendChild(form);
+                
+                // Log that we're submitting the form
+                console.log('Submitting form with bet data');
                 form.submit();
             } catch (e) {
-                console.error('Error sending bet message:', e);
+                console.error('Error placing bet:', e);
+                alert('Error placing bet: ' + e.message);
             }
         }
     </script>
@@ -834,9 +829,12 @@ def main():
     # Spin button and manual input
     spin_cols = top_row1[3].columns([1, 2])
     if spin_cols[0].button("SPIN", key="btn_spin_top", use_container_width=True, type="primary"):
-        result = spin_wheel()
-        st.success(f"Spin result: {result}")
-        st.rerun()  # Force a rerun to update everything
+        try:
+            result = spin_wheel()
+            st.success(f"Spin result: {result}")
+            # No rerun needed - let the page update naturally
+        except Exception as e:
+            st.error(f"Error during spin: {str(e)}")
     
     # Manual input for live casino numbers
     manual_num = spin_cols[1].text_input("", key="manual_number_top", 
