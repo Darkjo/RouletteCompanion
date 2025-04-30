@@ -262,23 +262,7 @@ def create_roulette_board():
     roulette_type = simulator.roulette_type
     
     # Main title
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        st.write("## Roulette Board")
-    
-    with col2:
-        # Add chip selection here for better UI organization
-        st.write("### Select Chip")
-        chip_values = [0.1, 0.5, 1, 5, 10, 25, 50, 100, 500]
-        selected_value = st.selectbox(
-            "Chip Value",
-            chip_values,
-            index=chip_values.index(st.session_state.current_chip) if st.session_state.current_chip in chip_values else 2,
-            format_func=lambda x: f"${x:.2f}" if x < 1 or x != int(x) else f"${int(x)}",
-            label_visibility="collapsed"
-        )
-        st.session_state.current_chip = selected_value
+    st.write("## Roulette Board")
     
     # Create a fully interactive roulette board with clickable elements
     html_board = """
@@ -1375,11 +1359,11 @@ def main():
         11. **Straight Bet** (1 number) – Pays 35 to 1
         """)
     
-    # Display balance, total bet, and potential win at the top
-    balance_cols = st.columns([1, 1, 1, 1, 1])
+    # Display balance, controls, and bet info at the top
+    top_row1 = st.columns([1, 1, 1, 1, 1])
     
     # Balance display
-    balance_cols[0].metric(
+    top_row1[0].metric(
         "Balance", 
         f"${st.session_state.simulator.balance:.2f}", 
         f"{st.session_state.simulator.get_summary_stats()['net_profit']:.2f}"
@@ -1389,18 +1373,67 @@ def main():
     total_bet = st.session_state.simulator.get_total_bet_amount()
     potential_win = st.session_state.simulator.get_potential_win()
     
-    balance_cols[1].metric("Total Bet", f"${total_bet:.2f}")
-    balance_cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
+    top_row1[1].metric("Total Bet", f"${total_bet:.2f}")
+    top_row1[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
+    
+    # Spin button - moved to top
+    if top_row1[3].button("SPIN", key="btn_spin_top", use_container_width=True, type="primary"):
+        spin_wheel()
+    
+    # Manual input for live casino numbers - moved to top
+    manual_num = top_row1[4].text_input("Enter number (0-36 or 00):", key="manual_number_top", 
+                                        placeholder="0-36 or 00")
+    if manual_num:
+        # Validate the input
+        valid_input = False
+        if manual_num == "00":
+            valid_input = True
+        elif manual_num.isdigit() and 0 <= int(manual_num) <= 36:
+            valid_input = True
+        
+        if valid_input:
+            # Convert to correct type
+            if manual_num == "00":
+                result = "00"
+            else:
+                result = int(manual_num)
+            
+            # Update spin history with manual addition
+            update_spins_df(result, manually_added=True)
+        else:
+            st.error("Invalid number. Enter 0-36 or 00.")
+    
+    # Chip selection and control buttons row
+    top_row2 = st.columns([3, 1, 1])
+    
+    # Chip selection as buttons
+    with top_row2[0]:
+        st.write("**Select Chip:**")
+        chip_cols = st.columns(9)
+        chip_values = [0.1, 0.5, 1, 5, 10, 25, 50, 100, 500]
+        
+        for i, value in enumerate(chip_values):
+            # Format the display value
+            display_value = f"${value:.1f}" if value < 1 else f"${int(value)}" if value == int(value) else f"${value:.1f}"
+            
+            # Create a button for each chip with visual indication of selection
+            if chip_cols[i].button(
+                display_value, 
+                key=f"chip_btn_{value}",
+                type="primary" if st.session_state.current_chip == value else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.current_chip = value
     
     # Undo and Clear buttons
-    if balance_cols[3].button("UNDO LAST BET", key="btn_undo_bet_top", use_container_width=True, 
+    if top_row2[1].button("UNDO BET", key="btn_undo_bet_top", use_container_width=True, 
                     type="secondary", help="Remove the last bet placed"):
         if st.session_state.simulator.undo_last_bet():
             st.success("Last bet removed!")
         else:
             st.warning("No bets to undo.")
     
-    if balance_cols[4].button("CLEAR BETS", key="btn_clear_bets_top", use_container_width=True, 
+    if top_row2[2].button("CLEAR ALL", key="btn_clear_bets_top", use_container_width=True, 
                     type="secondary", help="Clear all active bets"):
         st.session_state.simulator.clear_bets()
         st.success("All bets cleared!")
@@ -1439,36 +1472,7 @@ def main():
                 bet_df = pd.DataFrame(bet_data)
                 st.dataframe(bet_df, use_container_width=True, hide_index=True)
         
-        # Betting controls - with only spin buttons
-        spin_cols = st.columns(2)
-        
-        # Spin button
-        if spin_cols[0].button("SPIN", key="btn_spin", use_container_width=True, type="primary"):
-            spin_wheel()
-        
-        # Manual input for live casino numbers
-        with spin_cols[1]:
-            manual_num = st.text_input("Or enter live casino number:", key="manual_number", placeholder="Enter number (0-36 or 00)")
-            if st.button("Add Result", key="btn_add_result", use_container_width=True):
-                if manual_num:
-                    # Validate the input
-                    valid_input = False
-                    if manual_num == "00":
-                        valid_input = True
-                    elif manual_num.isdigit() and 0 <= int(manual_num) <= 36:
-                        valid_input = True
-                    
-                    if valid_input:
-                        # Convert to correct type
-                        if manual_num == "00":
-                            result = "00"
-                        else:
-                            result = int(manual_num)
-                        
-                        # Update spin history with manual addition
-                        update_spins_df(result, manually_added=True)
-                    else:
-                        st.error("Invalid number. Enter 0-36 or 00.")
+        # No spin buttons here - they're now at the top of the page
         
         # Spin history
         create_spin_history_display()
