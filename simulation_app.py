@@ -60,7 +60,7 @@ def get_chip_color(value: float) -> str:
     }
     return colors.get(value, "#CCCCCC")
 
-def update_spins_df(number: Union[int, str]):
+def update_spins_df(number: Union[int, str], manually_added: bool = False):
     """Update the spins dataframe with a new result."""
     props = st.session_state.simulator.get_number_properties(number)
     
@@ -76,6 +76,51 @@ def update_spins_df(number: Union[int, str]):
     }])
     
     st.session_state.spins_df = pd.concat([st.session_state.spins_df, new_row], ignore_index=True)
+    
+    # If this is a manually added number, check if there are active bets to settle
+    if manually_added and st.session_state.simulator.active_bets:
+        # Calculate winnings for the manual result
+        winnings = 0
+        won_bets = []
+        lost_bets = []
+        
+        for bet in st.session_state.simulator.active_bets:
+            if number in bet.numbers or str(number) in bet.numbers:
+                # Bet wins
+                winning_amount = bet.get_winning_amount()
+                winnings += winning_amount
+                won_bets.append(bet)
+            else:
+                # Bet loses
+                lost_bets.append(bet)
+        
+        # Update balance
+        st.session_state.simulator.balance += winnings
+        
+        # Store result in history
+        st.session_state.simulator.spin_history.append({
+            'result': number,
+            'winnings': winnings,
+            'won_bets': won_bets,
+            'lost_bets': lost_bets
+        })
+        
+        # Update win history
+        st.session_state.win_history.append({
+            'number': str(number),
+            'winnings': winnings,
+            'bets_placed': len(won_bets) + len(lost_bets),
+            'bets_won': len(won_bets)
+        })
+        
+        # Clear active bets for next round
+        st.session_state.simulator.active_bets = []
+        
+        # Show result message
+        if winnings > 0:
+            st.success(f"You won ${winnings:.2f}! {len(won_bets)} bet(s) won.")
+        else:
+            st.warning(f"No winners this time. All {len(lost_bets)} bet(s) lost.")
 
 def spin_wheel():
     """Spin the roulette wheel and process results."""
@@ -435,9 +480,8 @@ def create_betting_controls():
                     else:
                         result = int(manual_num)
                     
-                    # Update spin history
-                    update_spins_df(result)
-                    st.success(f"Added result: {result}")
+                    # Update spin history with manual addition
+                    update_spins_df(result, manually_added=True)
                 else:
                     st.error("Invalid number. Enter 0-36 or 00.")
 
