@@ -897,94 +897,8 @@ def create_chip_selector():
     pass
 
 def create_betting_controls():
-    """Create controls for betting and spinning."""
-    cols = st.columns([1, 1, 1, 1, 1])
-    
-    # Balance display
-    cols[0].metric(
-        "Balance", 
-        f"${st.session_state.simulator.balance:.2f}", 
-        f"{st.session_state.simulator.get_summary_stats()['net_profit']:.2f}"
-    )
-    
-    # Current bets display
-    total_bet = st.session_state.simulator.get_total_bet_amount()
-    potential_win = st.session_state.simulator.get_potential_win()
-    
-    cols[1].metric("Total Bet", f"${total_bet:.2f}")
-    cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
-    
-    # Undo button - place directly in the column without nesting
-    if cols[3].button("UNDO LAST BET", key="btn_undo_bet", use_container_width=True, 
-                    type="secondary", help="Remove the last bet placed"):
-        if st.session_state.simulator.undo_last_bet():
-            st.success("Last bet removed!")
-        else:
-            st.warning("No bets to undo.")
-    
-    # Clear bets button - place directly in the main controls row
-    if cols[4].button("CLEAR BETS", key="btn_clear_bets", use_container_width=True, 
-                    type="secondary", help="Clear all active bets"):
-        st.session_state.simulator.clear_bets()
-        st.success("All bets cleared!")
-    
-    # Display active bets if there are any
-    if st.session_state.simulator.active_bets:
-        st.write("### Active Bets")
-        
-        # Create a table to display the active bets
-        bet_data = []
-        for bet in st.session_state.simulator.active_bets:
-            # Format numbers for display
-            numbers_str = ", ".join(str(n) for n in bet.numbers) if len(bet.numbers) <= 6 else f"{len(bet.numbers)} numbers"
-            
-            # Format bet type for display
-            bet_type_display = bet.bet_type.replace('_', ' ').title()
-            if bet.name:
-                bet_type_display = bet.name
-            
-            bet_data.append({
-                "Bet Type": bet_type_display,
-                "Amount": f"${bet.amount:.2f}",
-                "Covers": numbers_str,
-                "Payout": f"{bet.get_payout_multiplier()}:1",
-                "Win Amount": f"${bet.get_winning_amount():.2f}"
-            })
-        
-        if bet_data:
-            bet_df = pd.DataFrame(bet_data)
-            st.dataframe(bet_df, use_container_width=True, hide_index=True)
-    
-    # Create two buttons - Spin or Enter Live Number
-    spin_cols = st.columns(2)
-    
-    # Spin button
-    if spin_cols[0].button("SPIN", key="btn_spin", use_container_width=True, type="primary"):
-        spin_wheel()
-    
-    # Manual input for live casino numbers
-    with spin_cols[1]:
-        manual_num = st.text_input("Or enter live casino number:", key="manual_number", placeholder="Enter number (0-36 or 00)")
-        if st.button("Add Result", key="btn_add_result", use_container_width=True):
-            if manual_num:
-                # Validate the input
-                valid_input = False
-                if manual_num == "00":
-                    valid_input = True
-                elif manual_num.isdigit() and 0 <= int(manual_num) <= 36:
-                    valid_input = True
-                
-                if valid_input:
-                    # Convert to correct type
-                    if manual_num == "00":
-                        result = "00"
-                    else:
-                        result = int(manual_num)
-                    
-                    # Update spin history with manual addition
-                    update_spins_df(result, manually_added=True)
-                else:
-                    st.error("Invalid number. Enter 0-36 or 00.")
+    """Create controls for betting and spinning - now integrated into main layout."""
+    pass
 
 def create_spin_history_display():
     """Create a display for the spin history."""
@@ -1461,115 +1375,196 @@ def main():
         11. **Straight Bet** (1 number) – Pays 35 to 1
         """)
     
-    # Main area with tabs - simplified to focus on functionality
-    main_tabs = st.tabs(["Roulette Table & Recommendations", "Analysis"])
+    # Display balance, total bet, and potential win at the top
+    balance_cols = st.columns([1, 1, 1, 1, 1])
+    
+    # Balance display
+    balance_cols[0].metric(
+        "Balance", 
+        f"${st.session_state.simulator.balance:.2f}", 
+        f"{st.session_state.simulator.get_summary_stats()['net_profit']:.2f}"
+    )
+    
+    # Current bets display
+    total_bet = st.session_state.simulator.get_total_bet_amount()
+    potential_win = st.session_state.simulator.get_potential_win()
+    
+    balance_cols[1].metric("Total Bet", f"${total_bet:.2f}")
+    balance_cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
+    
+    # Undo and Clear buttons
+    if balance_cols[3].button("UNDO LAST BET", key="btn_undo_bet_top", use_container_width=True, 
+                    type="secondary", help="Remove the last bet placed"):
+        if st.session_state.simulator.undo_last_bet():
+            st.success("Last bet removed!")
+        else:
+            st.warning("No bets to undo.")
+    
+    if balance_cols[4].button("CLEAR BETS", key="btn_clear_bets_top", use_container_width=True, 
+                    type="secondary", help="Clear all active bets"):
+        st.session_state.simulator.clear_bets()
+        st.success("All bets cleared!")
+    
+    # Main area with tabs
+    main_tabs = st.tabs(["Roulette Table", "Recommendations", "Analysis"])
     
     with main_tabs[0]:
-        # Create two columns - 2/3 for table, 1/3 for recommendations
-        table_rec_cols = st.columns([2, 1])
+        # Roulette board (includes chip selection)
+        create_roulette_board()
         
-        with table_rec_cols[0]:
-            # Roulette board (includes chip selection)
-            create_roulette_board()
+        # Display active bets if there are any
+        if st.session_state.simulator.active_bets:
+            st.write("### Active Bets")
             
-            # Betting controls
-            create_betting_controls()
+            # Create a table to display the active bets
+            bet_data = []
+            for bet in st.session_state.simulator.active_bets:
+                # Format numbers for display
+                numbers_str = ", ".join(str(n) for n in bet.numbers) if len(bet.numbers) <= 6 else f"{len(bet.numbers)} numbers"
+                
+                # Format bet type for display
+                bet_type_display = bet.bet_type.replace('_', ' ').title()
+                if bet.name:
+                    bet_type_display = bet.name
+                
+                bet_data.append({
+                    "Bet Type": bet_type_display,
+                    "Amount": f"${bet.amount:.2f}",
+                    "Covers": numbers_str,
+                    "Payout": f"{bet.get_payout_multiplier()}:1",
+                    "Win Amount": f"${bet.get_winning_amount():.2f}"
+                })
             
-            # Spin history
-            create_spin_history_display()
+            if bet_data:
+                bet_df = pd.DataFrame(bet_data)
+                st.dataframe(bet_df, use_container_width=True, hide_index=True)
         
-        with table_rec_cols[1]:
-            # Agent recommendations directly on the table screen
-            st.write("### Betting Recommendations")
-            
-            if not hasattr(st.session_state, 'agent') or st.session_state.spins_df.empty:
-                st.info("Play more spins to get recommendations!")
-            else:
-                # Get recommendations from the agent
-                recommendations = st.session_state.agent.get_specific_bet_recommendations(
-                    st.session_state.spins_df,
-                    st.session_state.simulator.roulette_type,
-                    st.session_state.simulator.balance
-                )
-                
-                # Store recommendations for later evaluation
-                st.session_state.last_recommendations = recommendations
-                
-                # Show recommendations with clear action buttons for quick betting
-                st.write("**Single Numbers**")
-                if recommendations['single_numbers']:
-                    for num_rec in recommendations['single_numbers']:
-                        confidence = num_rec.get('confidence', 0)
-                        number = num_rec['number']
+        # Betting controls - with only spin buttons
+        spin_cols = st.columns(2)
+        
+        # Spin button
+        if spin_cols[0].button("SPIN", key="btn_spin", use_container_width=True, type="primary"):
+            spin_wheel()
+        
+        # Manual input for live casino numbers
+        with spin_cols[1]:
+            manual_num = st.text_input("Or enter live casino number:", key="manual_number", placeholder="Enter number (0-36 or 00)")
+            if st.button("Add Result", key="btn_add_result", use_container_width=True):
+                if manual_num:
+                    # Validate the input
+                    valid_input = False
+                    if manual_num == "00":
+                        valid_input = True
+                    elif manual_num.isdigit() and 0 <= int(manual_num) <= 36:
+                        valid_input = True
+                    
+                    if valid_input:
+                        # Convert to correct type
+                        if manual_num == "00":
+                            result = "00"
+                        else:
+                            result = int(manual_num)
                         
-                        # Create a container for each recommendation with a bet button
-                        num_cols = st.columns([3, 1])
-                        
-                        with num_cols[0]:
-                            st.markdown(
-                                f"<div style='display: flex; align-items: center;'>"
-                                f"<span style='font-weight: bold; margin-right: 10px;'>Number {number}:</span>"
-                                f"<div style='background: linear-gradient(to right, "
-                                f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
-                                f"#f0f0f0 {int(confidence*100)}%); "
-                                f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
-                                f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
-                                f"</div>",
-                                unsafe_allow_html=True
-                            )
-                        
-                        # Add a button to place this bet
-                        with num_cols[1]:
-                            if st.button(f"Bet", key=f"bet_num_{number}"):
-                                # Use current chip value to place this bet
-                                if st.session_state.current_chip_value:
-                                    place_bet('straight', number)
-                                else:
-                                    st.warning("Select a chip first")
-                else:
-                    st.write("No single number recommendations")
-                
-                # Display outside bet recommendations
-                st.write("**Outside Bets**")
-                for bet_type in ['red_black', 'even_odd', 'high_low']:
-                    if bet_type in recommendations and recommendations[bet_type].get('recommendation'):
-                        rec = recommendations[bet_type]
-                        confidence = rec.get('confidence', 0)
-                        recommendation = rec['recommendation']
-                        bet_name = bet_type.replace('_', ' ').title()
-                        
-                        # Create a container with bet button
-                        out_cols = st.columns([3, 1])
-                        
-                        with out_cols[0]:
-                            st.markdown(
-                                f"<div style='display: flex; align-items: center;'>"
-                                f"<span style='font-weight: bold; margin-right: 10px;'>{bet_name}:</span>"
-                                f"<span style='margin-right: 10px;'>{recommendation}</span>"
-                                f"<div style='background: linear-gradient(to right, "
-                                f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
-                                f"#f0f0f0 {int(confidence*100)}%); "
-                                f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
-                                f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
-                                f"</div>",
-                                unsafe_allow_html=True
-                            )
-                        
-                        # Add a button to place this bet
-                        with out_cols[1]:
-                            if st.button(f"Bet", key=f"bet_{bet_type}_{recommendation}"):
-                                # Use current chip value to place this bet
-                                if st.session_state.current_chip_value:
-                                    if bet_type == 'red_black':
-                                        place_bet('color', recommendation.lower())
-                                    elif bet_type == 'even_odd':
-                                        place_bet('parity', recommendation.lower())
-                                    elif bet_type == 'high_low':
-                                        place_bet('range', recommendation.lower())
-                                else:
-                                    st.warning("Select a chip first")
+                        # Update spin history with manual addition
+                        update_spins_df(result, manually_added=True)
+                    else:
+                        st.error("Invalid number. Enter 0-36 or 00.")
+        
+        # Spin history
+        create_spin_history_display()
     
     with main_tabs[1]:
+        # Agent recommendations
+        st.write("### Betting Recommendations")
+        
+        if not hasattr(st.session_state, 'agent') or st.session_state.spins_df.empty:
+            st.info("Play more spins to get recommendations!")
+        else:
+            # Get recommendations from the agent
+            recommendations = st.session_state.agent.get_specific_bet_recommendations(
+                st.session_state.spins_df,
+                st.session_state.simulator.roulette_type,
+                st.session_state.simulator.balance
+            )
+            
+            # Store recommendations for later evaluation
+            st.session_state.last_recommendations = recommendations
+            
+            # Show recommendations with clear action buttons for quick betting
+            st.write("**Single Numbers**")
+            if recommendations['single_numbers']:
+                for num_rec in recommendations['single_numbers']:
+                    confidence = num_rec.get('confidence', 0)
+                    number = num_rec['number']
+                    
+                    # Create a container for each recommendation with a bet button
+                    num_cols = st.columns([3, 1])
+                    
+                    with num_cols[0]:
+                        st.markdown(
+                            f"<div style='display: flex; align-items: center;'>"
+                            f"<span style='font-weight: bold; margin-right: 10px;'>Number {number}:</span>"
+                            f"<div style='background: linear-gradient(to right, "
+                            f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
+                            f"#f0f0f0 {int(confidence*100)}%); "
+                            f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
+                            f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    # Add a button to place this bet
+                    with num_cols[1]:
+                        if st.button(f"Bet", key=f"bet_num_{number}"):
+                            # Use current chip value to place this bet
+                            if st.session_state.current_chip:
+                                place_bet('straight', number)
+                            else:
+                                st.warning("Select a chip first")
+            else:
+                st.write("No single number recommendations")
+            
+            # Display outside bet recommendations
+            st.write("**Outside Bets**")
+            for bet_type in ['red_black', 'even_odd', 'high_low']:
+                if bet_type in recommendations and recommendations[bet_type].get('recommendation'):
+                    rec = recommendations[bet_type]
+                    confidence = rec.get('confidence', 0)
+                    recommendation = rec['recommendation']
+                    bet_name = bet_type.replace('_', ' ').title()
+                    
+                    # Create a container with bet button
+                    out_cols = st.columns([3, 1])
+                    
+                    with out_cols[0]:
+                        st.markdown(
+                            f"<div style='display: flex; align-items: center;'>"
+                            f"<span style='font-weight: bold; margin-right: 10px;'>{bet_name}:</span>"
+                            f"<span style='margin-right: 10px;'>{recommendation}</span>"
+                            f"<div style='background: linear-gradient(to right, "
+                            f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
+                            f"#f0f0f0 {int(confidence*100)}%); "
+                            f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
+                            f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    # Add a button to place this bet
+                    with out_cols[1]:
+                        if st.button(f"Bet", key=f"bet_{bet_type}_{recommendation}"):
+                            # Use current chip value to place this bet
+                            if st.session_state.current_chip:
+                                if bet_type == 'red_black':
+                                    place_bet('color', recommendation.lower())
+                                elif bet_type == 'even_odd':
+                                    place_bet('parity', recommendation.lower())
+                                elif bet_type == 'high_low':
+                                    place_bet('range', recommendation.lower())
+                            else:
+                                st.warning("Select a chip first")
+    
+    with main_tabs[2]:
         # Create columns for stats
         analysis_cols = st.columns(2)
         
