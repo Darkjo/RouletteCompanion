@@ -583,12 +583,15 @@ class RouletteSimulator:
                 'net_profit': 0,
                 'win_rate': 0,
                 'most_common_result': None,
-                'biggest_win': 0
+                'biggest_win': 0,
+                'bets_placed': 0,
+                'total_wagered': 0,
+                'roi': 0
             }
         
         total_spins = len(self.spin_history)
-        starting_balance = 1000.0  # Default starting balance
-        net_profit = self.balance - starting_balance
+        # Use the tracked initial balance
+        net_profit = self.balance - self.initial_balance
         
         # Calculate win rate
         spins_with_wins = sum(1 for spin in self.spin_history if spin['winnings'] > 0)
@@ -601,12 +604,27 @@ class RouletteSimulator:
         # Find biggest win
         biggest_win = max((spin['winnings'] for spin in self.spin_history), default=0)
         
+        # Calculate total bets placed across all spins
+        bets_placed = sum(len(spin.get('won_bets', [])) + len(spin.get('lost_bets', [])) 
+                         for spin in self.spin_history)
+        
+        # Calculate total amount wagered
+        total_wagered = sum(sum(bet[0].amount for bet in spin.get('won_bets', []))
+                          + sum(bet.amount for bet in spin.get('lost_bets', []))
+                          for spin in self.spin_history)
+        
+        # Calculate ROI (Return on Investment)
+        roi = net_profit / total_wagered if total_wagered > 0 else 0
+        
         return {
             'total_spins': total_spins,
             'net_profit': net_profit,
             'win_rate': win_rate,
             'most_common_result': most_common,
-            'biggest_win': biggest_win
+            'biggest_win': biggest_win,
+            'bets_placed': bets_placed,
+            'total_wagered': total_wagered,
+            'roi': roi
         }
     
     def get_last_result_details(self) -> Dict:

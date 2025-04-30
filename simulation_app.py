@@ -497,7 +497,7 @@ def create_roulette_board():
             </div>
             """
     
-    # Add third column bet
+    # Add third column bet (moved to after the numbers 34, 35, 36)
     html_board += """
     <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 3}, '*')">2:1</div>
     """
@@ -594,6 +594,9 @@ def create_roulette_board():
         
         # Place the bet based on the clicked element
         try:
+            # For debugging in Streamlit console
+            st.write(f"Debug - Received bet: type={bet_type}, number={number}")
+            
             if bet_type == 'straight':
                 place_bet('straight', int(number))
             elif bet_type == 'column':
@@ -610,6 +613,9 @@ def create_roulette_board():
             # Clear the values after processing
             st.session_state.bet_type = ""
             st.session_state.bet_number = "" 
+            
+            # Success message
+            st.success(f"Bet placed successfully!")
             
             # Force a rerun to update the UI with the new bet
             st.rerun()
