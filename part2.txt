@@ -1,0 +1,187 @@
+        # Roulette board (includes chip selection)
+        create_roulette_board()
+        
+        # Display active bets if there are any
+        if st.session_state.simulator.active_bets:
+            st.write("### Active Bets")
+            
+            # Create a table to display the active bets
+            bet_data = []
+            for bet in st.session_state.simulator.active_bets:
+                # Format numbers for display
+                numbers_str = ", ".join(str(n) for n in bet.numbers) if len(bet.numbers) <= 6 else f"{len(bet.numbers)} numbers"
+                
+                # Format bet type for display
+                bet_type_display = bet.bet_type.replace('_', ' ').title()
+                if bet.name:
+                    bet_type_display = bet.name
+                
+                bet_data.append({
+                    "Bet Type": bet_type_display,
+                    "Amount": f"${bet.amount:.2f}",
+                    "Covers": numbers_str,
+                    "Payout": f"{bet.get_payout_multiplier()}:1",
+                    "Win Amount": f"${bet.get_winning_amount():.2f}"
+                })
+            
+            if bet_data:
+                bet_df = pd.DataFrame(bet_data)
+                st.dataframe(bet_df, use_container_width=True, hide_index=True)
+        
+        # No spin buttons here - they're now at the top of the page
+        
+        # Spin history
+        create_spin_history_display()
+    
+    with main_tabs[1]:
+        # Agent recommendations
+        st.write("### Betting Recommendations")
+        
+        if not hasattr(st.session_state, 'agent') or st.session_state.spins_df.empty:
+            st.info("Play more spins to get recommendations!")
+        else:
+            # Get recommendations from the agent
+            recommendations = st.session_state.agent.get_specific_bet_recommendations(
+                st.session_state.spins_df,
+                st.session_state.simulator.roulette_type,
+                st.session_state.simulator.balance
+            )
+            
+            # Store recommendations for later evaluation
+            st.session_state.last_recommendations = recommendations
+            
+            # Show recommendations with clear action buttons for quick betting
+            st.write("**Single Numbers**")
+            if recommendations['single_numbers']:
+                for num_rec in recommendations['single_numbers']:
+                    confidence = num_rec.get('confidence', 0)
+                    number = num_rec['number']
+                    
+                    # Create a container for each recommendation with a bet button
+                    num_cols = st.columns([3, 1])
+                    
+                    with num_cols[0]:
+                        st.markdown(
+                            f"<div style='display: flex; align-items: center;'>"
+                            f"<span style='font-weight: bold; margin-right: 10px;'>Number {number}:</span>"
+                            f"<div style='background: linear-gradient(to right, "
+                            f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
+                            f"#f0f0f0 {int(confidence*100)}%); "
+                            f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
+                            f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    # Add a button to place this bet
+                    with num_cols[1]:
+                        if st.button(f"Bet", key=f"bet_num_{number}"):
+                            # Use current chip value to place this bet
+                            if st.session_state.current_chip:
+                                place_bet('straight', number)
+                            else:
+                                st.warning("Select a chip first")
+            else:
+                st.write("No single number recommendations")
+            
+            # Display outside bet recommendations
+            st.write("**Outside Bets**")
+            for bet_type in ['red_black', 'even_odd', 'high_low']:
+                if bet_type in recommendations and recommendations[bet_type].get('recommendation'):
+                    rec = recommendations[bet_type]
+                    confidence = rec.get('confidence', 0)
+                    recommendation = rec['recommendation']
+                    bet_name = bet_type.replace('_', ' ').title()
+                    
+                    # Create a container with bet button
+                    out_cols = st.columns([3, 1])
+                    
+                    with out_cols[0]:
+                        st.markdown(
+                            f"<div style='display: flex; align-items: center;'>"
+                            f"<span style='font-weight: bold; margin-right: 10px;'>{bet_name}:</span>"
+                            f"<span style='margin-right: 10px;'>{recommendation}</span>"
+                            f"<div style='background: linear-gradient(to right, "
+                            f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
+                            f"#f0f0f0 {int(confidence*100)}%); "
+                            f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
+                            f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    # Add a button to place this bet
+                    with out_cols[1]:
+                        if st.button(f"Bet", key=f"bet_{bet_type}_{recommendation}"):
+                            # Use current chip value to place this bet
+                            if st.session_state.current_chip:
+                                if bet_type == 'red_black':
+                                    place_bet('color', recommendation.lower())
+                                elif bet_type == 'even_odd':
+                                    place_bet('parity', recommendation.lower())
+                                elif bet_type == 'high_low':
+                                    place_bet('range', recommendation.lower())
+                            else:
+                                st.warning("Select a chip first")
+    
+    with main_tabs[2]:
+        # Create columns for stats
+        analysis_cols = st.columns(2)
+        
+        with analysis_cols[0]:
+            # Session stats - simplified
+            create_session_stats()
+        
+        with analysis_cols[1]:
+            # Advanced analysis components
+            if len(st.session_state.spins_df) >= 10:
+                st.write("### Wheel Sector Analysis")
+                sector_analysis = st.session_state.advanced_analysis.analyze_sectors(
+                    st.session_state.spins_df,
+                    st.session_state.simulator.roulette_type
+                )
+                
+                if sector_analysis and 'sectors' in sector_analysis:
+                    sector_data = []
+                    for sector in sector_analysis['sectors']:
+                        sector_data.append({
+                            'Sector': sector['name'],
+                            'Frequency': f"{sector['frequency']:.1%}",
+                            'Expected': f"{sector['expected']:.1%}",
+                            'Difference': sector['frequency'] - sector['expected']
+                        })
+                    
+                    if sector_data:
+                        sector_df = pd.DataFrame(sector_data)
+                        sector_df = sector_df.sort_values('Difference', ascending=False)
+                        st.dataframe(sector_df, use_container_width=True, hide_index=True)
+        
+        # Display sleeper numbers as these are most useful
+        if len(st.session_state.spins_df) >= 10:
+            st.write("### Sleeper Numbers Analysis")
+            sleepers = st.session_state.advanced_analysis.get_sleeper_numbers(
+                st.session_state.spins_df,
+                st.session_state.simulator.roulette_type
+            )
+            
+            if sleepers and 'numbers' in sleepers:
+                st.write("Numbers that haven't appeared for a while:")
+                
+                sleeper_cols = st.columns(min(5, len(sleepers['numbers'])))
+                for i, sleeper in enumerate(sleepers['numbers']):
+                    number = sleeper.get('number')
+                    absence = sleeper.get('spins_absent', 0)
+                    props = st.session_state.simulator.get_number_properties(int(number) if number.isdigit() else number)
+                    color = props['color']
+                    text_color = "white" if color in ['black', 'green'] else "black"
+                    
+                    sleeper_cols[i].markdown(
+                        f"<div style='background-color: {color}; color: {text_color}; "
+                        f"text-align: center; padding: 10px; border-radius: 50%; width: 100%; margin-bottom: 5px;'>"
+                        f"{number}</div>"
+                        f"<div style='text-align: center;'>Missing for {absence} spins</div>",
+                        unsafe_allow_html=True
+                    )
+
+if __name__ == "__main__":
+    main()

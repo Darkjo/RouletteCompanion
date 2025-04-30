@@ -616,11 +616,7 @@ def create_roulette_board():
         except Exception as e:
             st.error(f"Error processing bet: {str(e)}")
     
-    # Horizontal line separator
-    st.markdown("---")
-    
-    # Now create the actual betting interface
-    st.write("## Place Your Bets")
+    # Move directly to main tabs without old betting interface
     
     # Zero section for betting
     st.write("### Zero Section")
