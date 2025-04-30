@@ -400,7 +400,7 @@ def create_roulette_board():
     <div class="roulette-board">
         <div class="board-grid">
             <!-- Zero pocket -->
-            <div class="zero green" onclick="window.parent.postMessage({type: 'bet_click', bet: 'straight', number: 0}, '*')">0</div>
+            <div class="zero green" onclick="placeBet('straight', 0)">0</div>
     """
     
     # Generate number cells for first row (1, 4, 7, etc.)
@@ -433,7 +433,7 @@ def create_roulette_board():
     
     # Add first column bet
     html_board += """
-    <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 1}, '*')">2:1</div>
+    <div class="column-bet" onclick="placeBet('column', 1)">2:1</div>
     """
     
     # Generate number cells for second row (2, 5, 8, etc.)
@@ -466,7 +466,7 @@ def create_roulette_board():
     
     # Add second column bet
     html_board += """
-    <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 2}, '*')">2:1</div>
+    <div class="column-bet" onclick="placeBet('column', 2)">2:1</div>
     """
     
     # Generate number cells for third row (3, 6, 9, etc.)
@@ -499,7 +499,7 @@ def create_roulette_board():
     
     # Add third column bet (moved to after the numbers 34, 35, 36)
     html_board += """
-    <div class="column-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'column', number: 3}, '*')">2:1</div>
+    <div class="column-bet" onclick="placeBet('column', 3)">2:1</div>
     """
     
     # Close the board grid
@@ -508,19 +508,19 @@ def create_roulette_board():
         
         <!-- Dozen bets -->
         <div class="dozen-bets">
-            <div class="dozen-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'dozen', number: 1}, '*')">1st Dozen (1-12)</div>
-            <div class="dozen-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'dozen', number: 2}, '*')">2nd Dozen (13-24)</div>
-            <div class="dozen-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'dozen', number: 3}, '*')">3rd Dozen (25-36)</div>
+            <div class="dozen-bet" onclick="placeBet('dozen', 1)">1st Dozen (1-12)</div>
+            <div class="dozen-bet" onclick="placeBet('dozen', 2)">2nd Dozen (13-24)</div>
+            <div class="dozen-bet" onclick="placeBet('dozen', 3)">3rd Dozen (25-36)</div>
         </div>
         
         <!-- Outside bets -->
         <div class="outside-bets">
-            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'range', number: 'low'}, '*')">1-18</div>
-            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'parity', number: 'even'}, '*')">EVEN</div>
-            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'color', number: 'red'}, '*')">RED</div>
-            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'color', number: 'black'}, '*')">BLACK</div>
-            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'parity', number: 'odd'}, '*')">ODD</div>
-            <div class="outside-bet" onclick="window.parent.postMessage({type: 'bet_click', bet: 'range', number: 'high'}, '*')">19-36</div>
+            <div class="outside-bet" onclick="placeBet('range', 'low')">1-18</div>
+            <div class="outside-bet" onclick="placeBet('parity', 'even')">EVEN</div>
+            <div class="outside-bet" onclick="placeBet('color', 'red')">RED</div>
+            <div class="outside-bet" onclick="placeBet('color', 'black')">BLACK</div>
+            <div class="outside-bet" onclick="placeBet('parity', 'odd')">ODD</div>
+            <div class="outside-bet" onclick="placeBet('range', 'high')">19-36</div>
         </div>
         
         <!-- Bet types legend -->
@@ -531,10 +531,64 @@ def create_roulette_board():
     </div>
     
     <script>
-        // Listen for bet clicks from the Streamlit parent frame
-        window.addEventListener('message', function(event) {
-            // Handle the message here
-            console.log('Received message:', event.data);
+        // Enhanced message handler with better debugging
+        function placeBet(betType, number) {
+            console.log('Sending bet to parent:', betType, number);
+            
+            try {
+                // First try the standard postMessage approach
+                window.parent.postMessage({
+                    type: 'bet_click',
+                    bet: betType,
+                    number: number
+                }, '*');
+                
+                // As a fallback, also manually create and submit a form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = window.location.href;
+                
+                // Add hidden fields with the bet data
+                const betTypeField = document.createElement('input');
+                betTypeField.type = 'hidden';
+                betTypeField.name = 'bet_type';
+                betTypeField.value = betType;
+                form.appendChild(betTypeField);
+                
+                const numberField = document.createElement('input');
+                numberField.type = 'hidden';
+                numberField.name = 'bet_number';
+                numberField.value = number;
+                form.appendChild(numberField);
+                
+                // Submit the form to reload the page with the bet
+                document.body.appendChild(form);
+                form.submit();
+            } catch (e) {
+                console.error('Error sending bet message:', e);
+            }
+        }
+        
+        // Update all onclick handlers to use our new function
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all elements with onclick handlers for betting
+            const betElements = document.querySelectorAll('[onclick*="postMessage"]');
+            
+            // Replace their handlers with our new more robust function
+            betElements.forEach(el => {
+                const onclick = el.getAttribute('onclick');
+                if (onclick) {
+                    // Extract the bet type and number from the original handler
+                    const matches = onclick.match(/bet:\s*'([^']+)'.*number:\s*([^,}]+)/);
+                    if (matches && matches.length >= 3) {
+                        const betType = matches[1];
+                        const betNumber = matches[2];
+                        
+                        // Replace the handler with our new function
+                        el.setAttribute('onclick', `placeBet('${betType}', ${betNumber})`);
+                    }
+                }
+            });
         });
     </script>
     """
