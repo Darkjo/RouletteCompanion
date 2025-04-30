@@ -98,9 +98,16 @@ def spin_wheel():
     details = st.session_state.simulator.get_last_result_details()
     
     # Track win/loss for analyzing strategy performance
+    # Calculate net winnings - total of win_amounts minus the total bet
+    net_winnings = 0
+    for bet_result in details['bet_results']:
+        if bet_result['won']:
+            net_winnings += bet_result['win_amount']
+        net_winnings -= bet_result['bet_amount']  # Subtract the bet amount
+
     st.session_state.win_history.append({
         'number': result,
-        'winnings': details['net_win_amount'],
+        'winnings': net_winnings,
         'timestamp': datetime.now()
     })
     
@@ -307,10 +314,11 @@ def create_roulette_board():
             <div class="zero green" onclick="placeBet('straight', 0)">0</div>
     """
     
+    # Standard roulette wheel - these numbers are red
+    red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+    
     # Generate number cells for first row (1, 4, 7, etc.)
     for num in range(1, 37, 3):
-        # In a standard roulette wheel, these numbers are red
-        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
         color = "red" if num in red_numbers else "black"
         
         # Check if there's a bet on this number
@@ -344,8 +352,6 @@ def create_roulette_board():
     
     # Generate number cells for second row (2, 5, 8, etc.)
     for num in range(2, 37, 3):
-        # In a standard roulette wheel, these numbers are red
-        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
         color = "red" if num in red_numbers else "black"
         
         # Check if there's a bet on this number
@@ -379,8 +385,6 @@ def create_roulette_board():
     
     # Generate number cells for third row (3, 6, 9, etc.)
     for num in range(3, 37, 3):
-        # In a standard roulette wheel, these numbers are red
-        red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
         color = "red" if num in red_numbers else "black"
         
         # Check if there's a bet on this number
