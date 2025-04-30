@@ -29,7 +29,7 @@ agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "streamlit run simulation_app.py --server.port 5000"
+args = "streamlit run roulette_fixed.py --server.port 5000"
 waitForPort = 5000
 
 [[ports]]
