@@ -177,391 +177,217 @@ def place_bet(bet_type, *args):
     return success
 
 def create_roulette_board():
-    """Create an interactive roulette board."""
-    html_board = """
-    <style>
-        .roulette-board {
-            width: 100%;
-            max-width: 800px;
-            margin: 0 auto;
-            font-family: Arial, sans-serif;
-            color: white;
-        }
-        
-        .board-grid {
-            display: grid;
-            grid-template-columns: auto repeat(12, 1fr) auto;
-            gap: 2px;
-            margin-bottom: 10px;
-        }
-        
-        .number {
-            position: relative;
-            aspect-ratio: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        .number:hover {
-            opacity: 0.8;
-        }
-        
-        .red {
-            background-color: #CC0000;
-        }
-        
-        .black {
-            background-color: #000000;
-        }
-        
-        .green {
-            background-color: #008800;
-        }
-        
-        .zero {
-            grid-column: 1;
-            grid-row: 1 / span 3;
-            aspect-ratio: unset;
-        }
-        
-        .column-bet {
-            background-color: #333;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        
-        .column-bet:hover {
-            background-color: #555;
-        }
-        
-        .dozen-bets {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            margin-bottom: 10px;
-        }
-        
-        .outside-bets {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 5px;
-            margin-bottom: 10px;
-        }
-        
-        .outside-bet, .dozen-bet {
-            padding: 10px;
-            text-align: center;
-            background-color: #333;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .outside-bet:hover, .dozen-bet:hover {
-            background-color: #555;
-        }
-        
-        .dozen-bet {
-            background-color: #0066cc;
-        }
-        
-        .chip {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            font-size: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 2px dashed gold;
-            background-color: white;
-            color: black;
-            font-weight: bold;
-        }
-        
-        .bet-types {
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 15px;
-            font-size: 12px;
-            text-align: center;
-        }
-    </style>
-    
-    <div class="roulette-board">
-        <div class="board-grid">
-            <!-- Zero pocket -->
-            <div class="zero green" onclick="placeBet('straight', 0)">0</div>
-    """
+    """Create an interactive roulette board using native Streamlit components."""
+    st.markdown("## Roulette Board")
+    st.write("Select a chip amount in the sidebar and click on the board to place your bets:")
     
     # Standard roulette wheel - these numbers are red
     red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
     
-    # Generate number cells for first row (1, 4, 7, etc.)
-    for num in range(1, 37, 3):
-        color = "red" if num in red_numbers else "black"
-        
-        # Check if there's a bet on this number
-        has_bet = False
-        bet_amount = ""
-        for bet in st.session_state.simulator.active_bets:
-            if num in bet.numbers and len(bet.numbers) == 1:
-                has_bet = True
-                bet_amount = str(bet.amount)
-                break
-        
-        # Add cell with or without chip
-        if has_bet:
-            html_board += f"""
-            <div class="number {color}" onclick="placeBet('straight', {num})">
-                {num}
-                <div class="chip">${bet_amount}</div>
-            </div>
-            """
+    # Create a styling function for the number cells
+    def get_number_style(num, is_zero=False):
+        if is_zero:
+            bg_color = "#008800"  # Green
+            text_color = "white"
+        elif num in red_numbers:
+            bg_color = "#CC0000"  # Red
+            text_color = "white"
         else:
-            html_board += f"""
-            <div class="number {color}" onclick="placeBet('straight', {num})">
-                {num}
-            </div>
-            """
-    
-    # Add first column bet
-    html_board += """
-    <div class="column-bet" onclick="placeBet('column', 1)">2:1</div>
-    """
-    
-    # Generate number cells for second row (2, 5, 8, etc.)
-    for num in range(2, 37, 3):
-        color = "red" if num in red_numbers else "black"
-        
-        # Check if there's a bet on this number
-        has_bet = False
-        bet_amount = ""
-        for bet in st.session_state.simulator.active_bets:
-            if num in bet.numbers and len(bet.numbers) == 1:
-                has_bet = True
-                bet_amount = str(bet.amount)
-                break
-        
-        # Add cell with or without chip
-        if has_bet:
-            html_board += f"""
-            <div class="number {color}" onclick="placeBet('straight', {num})">
-                {num}
-                <div class="chip">${bet_amount}</div>
-            </div>
-            """
-        else:
-            html_board += f"""
-            <div class="number {color}" onclick="placeBet('straight', {num})">
-                {num}
-            </div>
-            """
-    
-    # Add second column bet
-    html_board += """
-    <div class="column-bet" onclick="placeBet('column', 2)">2:1</div>
-    """
-    
-    # Generate number cells for third row (3, 6, 9, etc.)
-    for num in range(3, 37, 3):
-        color = "red" if num in red_numbers else "black"
-        
-        # Check if there's a bet on this number
-        has_bet = False
-        bet_amount = ""
-        for bet in st.session_state.simulator.active_bets:
-            if num in bet.numbers and len(bet.numbers) == 1:
-                has_bet = True
-                bet_amount = str(bet.amount)
-                break
-        
-        # Add cell with or without chip
-        if has_bet:
-            html_board += f"""
-            <div class="number {color}" onclick="placeBet('straight', {num})">
-                {num}
-                <div class="chip">${bet_amount}</div>
-            </div>
-            """
-        else:
-            html_board += f"""
-            <div class="number {color}" onclick="placeBet('straight', {num})">
-                {num}
-            </div>
-            """
-    
-    # Add third column bet (moved to after the numbers 34, 35, 36)
-    html_board += """
-    <div class="column-bet" onclick="placeBet('column', 3)">2:1</div>
-    """
-    
-    # Close the board grid
-    html_board += """
-        </div>
-        
-        <!-- Dozen bets -->
-        <div class="dozen-bets">
-            <div class="dozen-bet" onclick="placeBet('dozen', 1)">1st Dozen (1-12)</div>
-            <div class="dozen-bet" onclick="placeBet('dozen', 2)">2nd Dozen (13-24)</div>
-            <div class="dozen-bet" onclick="placeBet('dozen', 3)">3rd Dozen (25-36)</div>
-        </div>
-        
-        <!-- Outside bets -->
-        <div class="outside-bets">
-            <div class="outside-bet" onclick="placeBet('range', 'low')">1-18</div>
-            <div class="outside-bet" onclick="placeBet('parity', 'even')">EVEN</div>
-            <div class="outside-bet" onclick="placeBet('color', 'red')">RED</div>
-            <div class="outside-bet" onclick="placeBet('color', 'black')">BLACK</div>
-            <div class="outside-bet" onclick="placeBet('parity', 'odd')">ODD</div>
-            <div class="outside-bet" onclick="placeBet('range', 'high')">19-36</div>
-        </div>
-        
-        <!-- Bet types legend -->
-        <div class="bet-types">
-            <p><strong>Bet Types:</strong> A = Straight (35:1) | B = Split (17:1) | C = Street (11:1) | D = Corner (8:1) | E = Five Number (6:1)</p>
-            <p>F = Six Line (5:1) | G/H = Column (2:1) | I = Dozen (2:1) | J/K = Even Money (1:1)</p>
-        </div>
-    </div>
-    
-    <script>
-        // Enhanced message handler with better reliability
-        function placeBet(betType, number) {
-            console.log('Placing bet:', betType, number);
+            bg_color = "#000000"  # Black
+            text_color = "white"
             
-            try {
-                // Create a form and submit it directly to Streamlit
-                // This bypasses all communication issues
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = window.location.href;
+        # Check if there's a bet on this number
+        has_bet = False
+        bet_amount = ""
+        for bet in st.session_state.simulator.active_bets:
+            if num in bet.numbers and len(bet.numbers) == 1:
+                has_bet = True
+                bet_amount = str(bet.amount)
+                break
                 
-                // Create a special field that Streamlit will recognize
-                const formData = new FormData();
-                formData.append('bet_type', betType);
-                formData.append('bet_number', number);
-                
-                // Add hidden fields for the form submission
-                const betTypeField = document.createElement('input');
-                betTypeField.type = 'hidden';
-                betTypeField.name = 'bet_type';
-                betTypeField.value = betType;
-                form.appendChild(betTypeField);
-                
-                const numberField = document.createElement('input');
-                numberField.type = 'hidden';
-                numberField.name = 'bet_number';
-                numberField.value = number;
-                form.appendChild(numberField);
-                
-                // Submit the form
-                document.body.appendChild(form);
-                
-                // Log that we're submitting the form
-                console.log('Submitting form with bet data');
-                form.submit();
-            } catch (e) {
-                console.error('Error placing bet:', e);
-                alert('Error placing bet: ' + e.message);
-            }
-        }
-    </script>
-    """
+        # Define the base style
+        style = f"""
+            background-color: {bg_color};
+            color: {text_color};
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50px;
+            font-weight: bold;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+        """
+        
+        # If there's a bet on this number, add a chip
+        if has_bet:
+            chip = f"""
+            <div style="position: absolute; top: 5px; right: 5px; 
+                    width: 20px; height: 20px; border-radius: 50%; 
+                    background-color: white; color: black; 
+                    display: flex; justify-content: center; align-items: center;
+                    font-size: 10px; border: 2px dashed gold; font-weight: bold;">
+                ${bet_amount}
+            </div>
+            """
+        else:
+            chip = ""
+        
+        return style, chip
     
-    # Register an event handler for board clicks using a custom component
-    click_container = st.container()
+    # Create the roulette board layout
+    # Zero pocket
+    zero_style, zero_chip = get_number_style(0, is_zero=True)
     
-    with click_container:
-        # Create a custom component for handling click events
-        # This uses Streamlit's component API directly
-        st.markdown("""
-        <script>
-        // Setup a global event listener for messages from the board
-        window.addEventListener('message', function(e) {
-            if (e.data && e.data.type === 'bet_click') {
-                // Log the click event
-                console.log('Received bet click:', e.data);
-                
-                // Create a form to submit the data back to the server
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = window.location.href;
-                
-                // Add hidden fields with the bet data
-                const betTypeField = document.createElement('input');
-                betTypeField.type = 'hidden';
-                betTypeField.name = 'bet_type';
-                betTypeField.value = e.data.bet;
-                form.appendChild(betTypeField);
-                
-                const numberField = document.createElement('input');
-                numberField.type = 'hidden';
-                numberField.name = 'bet_number';
-                numberField.value = e.data.number;
-                form.appendChild(numberField);
-                
-                // Submit the form to reload the page with the bet
-                document.body.appendChild(form);
-                form.submit();
-            }
-        });
-        </script>
+    # Create the main rows
+    # This approach uses Streamlit's native components with HTML styling
+    
+    # Zero column
+    zero_col, number_grid = st.columns([1, 11])
+    
+    with zero_col:
+        # Create a full-height zero cell
+        st.markdown(f"""
+        <div style="{zero_style} height: 156px;">
+            0
+            {zero_chip}
+        </div>
         """, unsafe_allow_html=True)
         
-        # Store a hidden input for click parameter values
-        bet_type = st.text_input("Bet Type", key="bet_type", value="", label_visibility="collapsed")
-        bet_number = st.text_input("Bet Number", key="bet_number", value="", label_visibility="collapsed")
-    
-    # Create a callback for the interactive board
-    interactive_board_handler = st.components.v1.html(html_board, height=600)
-    
-    # Process any clicks on the board (this happens on subsequent page loads)
-    # Get form parameters from URL (Streamlit doesn't expose this directly, so we check session state)
-    if 'bet_type' in st.session_state and st.session_state.bet_type:
-        bet_type = st.session_state.bet_type
-        number = st.session_state.bet_number
-        
-        # Place the bet based on the clicked element
-        try:
-            # For debugging in Streamlit console
-            st.write(f"Debug - Received bet: type={bet_type}, number={number}")
-            
-            if bet_type == 'straight':
-                place_bet('straight', int(number))
-            elif bet_type == 'column':
-                place_bet('column', int(number))
-            elif bet_type == 'dozen':
-                place_bet('dozen', int(number))
-            elif bet_type == 'color':
-                place_bet('color', number)
-            elif bet_type == 'parity':
-                place_bet('parity', number)
-            elif bet_type == 'range':
-                place_bet('range', number)
-                
-            # Clear the values after processing
-            st.session_state.bet_type = ""
-            st.session_state.bet_number = "" 
-            
-            # Success message
-            st.success(f"Bet placed successfully!")
-            
-            # Force a rerun to update the UI with the new bet
+        # When clicked, place a bet on zero
+        if st.button("Bet on 0", key="btn_zero", use_container_width=True, type="secondary"):
+            place_bet('straight', 0)
+            st.success("Bet placed on 0")
             st.rerun()
-        except Exception as e:
-            st.error(f"Error processing bet: {str(e)}")
+    
+    # Main number grid (1-36)
+    with number_grid:
+        # Row 1 (numbers 1, 4, 7, ...)
+        row1_cols = st.columns(12)
+        for i, num in enumerate([n for n in range(1, 37, 3)]):
+            style, chip = get_number_style(num)
+            row1_cols[i].markdown(f"""
+            <div style="{style}">
+                {num}
+                {chip}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Add a button to place a bet
+            if row1_cols[i].button(f"Bet", key=f"btn_{num}", use_container_width=True):
+                place_bet('straight', num)
+                st.success(f"Bet placed on {num}")
+                st.rerun()
+                
+        # Row 2 (numbers 2, 5, 8, ...)
+        row2_cols = st.columns(12)
+        for i, num in enumerate([n for n in range(2, 37, 3)]):
+            style, chip = get_number_style(num)
+            row2_cols[i].markdown(f"""
+            <div style="{style}">
+                {num}
+                {chip}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Add a button to place a bet
+            if row2_cols[i].button(f"Bet", key=f"btn_{num}", use_container_width=True):
+                place_bet('straight', num)
+                st.success(f"Bet placed on {num}")
+                st.rerun()
+                
+        # Row 3 (numbers 3, 6, 9, ...)
+        row3_cols = st.columns(12)
+        for i, num in enumerate([n for n in range(3, 37, 3)]):
+            style, chip = get_number_style(num)
+            row3_cols[i].markdown(f"""
+            <div style="{style}">
+                {num}
+                {chip}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Add a button to place a bet
+            if row3_cols[i].button(f"Bet", key=f"btn_{num}", use_container_width=True):
+                place_bet('straight', num)
+                st.success(f"Bet placed on {num}")
+                st.rerun()
+                
+        # Column bets (2:1)
+        col_bet_cols = st.columns(12)
+        for i in range(3):
+            with col_bet_cols[i*4 + 1]:
+                if st.button(f"2:1 (col {i+1})", key=f"col_{i+1}", use_container_width=True):
+                    place_bet('column', i+1)
+                    st.success(f"Column bet placed on column {i+1}")
+                    st.rerun()
+    
+    # Outside bets
+    st.markdown("### Outside Bets")
+    
+    # Dozen bets
+    dozen_cols = st.columns(3)
+    for i in range(3):
+        label = f"{i*12+1}-{i*12+12}"
+        if dozen_cols[i].button(f"Dozen {i+1}: {label}", key=f"dozen_{i+1}", use_container_width=True):
+            place_bet('dozen', i+1)
+            st.success(f"Dozen bet placed on {label}")
+            st.rerun()
+    
+    # Even money bets
+    even_cols = st.columns(6)
+    
+    # Low/High
+    if even_cols[0].button("1-18", key="low", use_container_width=True):
+        place_bet('range', 'low')
+        st.success("Bet placed on 1-18")
+        st.rerun()
+        
+    if even_cols[5].button("19-36", key="high", use_container_width=True):
+        place_bet('range', 'high')
+        st.success("Bet placed on 19-36")
+        st.rerun()
+    
+    # Even/Odd
+    if even_cols[1].button("EVEN", key="even", use_container_width=True):
+        place_bet('parity', 'even')
+        st.success("Bet placed on EVEN")
+        st.rerun()
+        
+    if even_cols[4].button("ODD", key="odd", use_container_width=True):
+        place_bet('parity', 'odd')
+        st.success("Bet placed on ODD")
+        st.rerun()
+    
+    # Red/Black
+    if even_cols[2].button("RED", key="red", use_container_width=True, type="primary"):
+        place_bet('color', 'red')
+        st.success("Bet placed on RED")
+        st.rerun()
+        
+    if even_cols[3].button("BLACK", key="black", use_container_width=True):
+        place_bet('color', 'black')
+        st.success("Bet placed on BLACK")
+        st.rerun()
+    
+    # Bet types legend
+    st.markdown("""
+    ### Bet Types and Payouts
+    - **Straight Bet** (single number): 35 to 1
+    - **Split Bet** (2 adjacent numbers): 17 to 1
+    - **Street Bet** (3 numbers in a row): 11 to 1
+    - **Corner Bet** (4 numbers in a square): 8 to 1
+    - **Six Line** (6 numbers, two rows): 5 to 1
+    - **Column/Dozen**: 2 to 1
+    - **Red/Black, Odd/Even, 1-18/19-36**: 1 to 1
+    """)
+    
+    # Clear bets button
+    if st.button("Clear All Bets", key="clear_bets", type="secondary"):
+        st.session_state.simulator.clear_bets()
+        st.success("All bets cleared")
+        st.rerun()
 
 def create_chip_selector():
     """Create a selector for betting chips."""
