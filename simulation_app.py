@@ -271,16 +271,37 @@ def create_roulette_board():
         with cols[0]:
             # Zero section
             st.write("### 0 Section")
-            zero_cols = st.columns(2 if roulette_type == 'American' else 1)
             
-            if zero_cols[0].button("0", key="btn_0", use_container_width=True, 
-                               help="Straight bet on 0"):
-                place_bet('straight', 0)
-            
+            # For American roulette, we need to handle 0 and 00
             if roulette_type == 'American':
-                if zero_cols[1].button("00", key="btn_00", use_container_width=True,
-                                   help="Straight bet on 00"):
+                # Create a container for displaying zero buttons side by side using HTML
+                st.markdown("""
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <div style="background-color: green; color: white; text-align: center; 
+                    padding: 15px; border-radius: 5px; flex: 1;">0</div>
+                    <div style="background-color: green; color: white; text-align: center; 
+                    padding: 15px; border-radius: 5px; flex: 1;">00</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Add actual buttons below (one at a time, not in columns)
+                if st.button("Bet on 0", key="btn_0", use_container_width=True, 
+                           help="Straight bet on 0"):
+                    place_bet('straight', 0)
+                
+                if st.button("Bet on 00", key="btn_00", use_container_width=True,
+                           help="Straight bet on 00"):
                     place_bet('straight', '00')
+            else:
+                # European roulette only has a single zero
+                st.markdown("""
+                <div style="background-color: green; color: white; text-align: center; 
+                padding: 15px; border-radius: 5px; margin-bottom: 10px;">0</div>
+                """, unsafe_allow_html=True)
+                
+                if st.button("Bet on 0", key="btn_0", use_container_width=True, 
+                           help="Straight bet on 0"):
+                    place_bet('straight', 0)
             
             # Top line bet
             st.button("Top Line", key="btn_top_line", use_container_width=True,
@@ -313,15 +334,33 @@ def create_roulette_board():
             # Add row for dozens
             dozens_cols = st.columns(3)
             for idx, dozen in enumerate(["1st Dozen (1-12)", "2nd Dozen (13-24)", "3rd Dozen (25-36)"]):
+                # Calculate the dozen range
+                start_num = (idx * 12) + 1
+                end_num = start_num + 11
+                dozen_numbers = list(range(start_num, end_num + 1))
+                
                 if dozens_cols[idx].button(dozen, key=f"btn_dozen_{idx+1}", use_container_width=True,
                                        help=f"Dozen bet on {dozen} (pays 2:1)"):
+                    # Show the numbers this bet covers
+                    st.info(f"Dozen {idx+1} covers: {start_num}-{end_num}")
+                    
                     place_bet('dozen', idx+1)
             
             # Add row for columns
             columns_cols = st.columns(3)
             for idx, col_name in enumerate(["1st Column", "2nd Column", "3rd Column"]):
+                # Calculate which numbers this column covers
+                column_numbers = list(range(idx+1, 37, 3))
+                
+                # Create a formatted string with the numbers
+                column_numbers_str = ", ".join(str(n) for n in column_numbers)
+                
                 if columns_cols[idx].button(col_name, key=f"btn_column_{idx+1}", use_container_width=True,
-                                       help=f"Column bet on {col_name} (pays 2:1)"):
+                                       help=f"Column bet on {col_name} (pays 2:1)\nCovers: {column_numbers_str}"):
+                    
+                    # Create a visual representation of the column
+                    st.info(f"Column {idx+1} covers: {column_numbers_str}")
+                    
                     place_bet('column', idx+1)
     
     # Outside bets section
@@ -362,12 +401,35 @@ def create_roulette_board():
             if st.button("Street bet", key="btn_street", use_container_width=True,
                        help="Bet on 3 numbers in a row (pays 11:1)"):
                 street_row = st.number_input("Row number (1-12):", min_value=1, max_value=12, value=1, key="street_row")
+                
+                # Calculate the numbers in this street for preview
+                start_number = (street_row - 1) * 3 + 1
+                covered_numbers = [start_number, start_number + 1, start_number + 2]
+                
+                # Show the numbers this bet covers
+                st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
+                
                 if st.button("Place Street Bet", key="place_street"):
                     place_bet('street', street_row)
             
             if st.button("Corner bet", key="btn_corner", use_container_width=True,
                        help="Bet on 4 numbers in a corner (pays 8:1)"):
                 corner_num = st.number_input("Corner number (1-22):", min_value=1, max_value=22, value=1, key="corner_num")
+                
+                # Calculate the four corner numbers
+                row = (corner_num - 1) // 11
+                col = (corner_num - 1) % 11
+                start_number = row * 3 + col + 1
+                covered_numbers = [
+                    start_number, 
+                    start_number + 1, 
+                    start_number + 3, 
+                    start_number + 4
+                ]
+                
+                # Show the numbers this bet covers
+                st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
+                
                 if st.button("Place Corner Bet", key="place_corner"):
                     place_bet('corner', corner_num)
         
@@ -377,6 +439,15 @@ def create_roulette_board():
             if st.button("Six Line bet", key="btn_six_line", use_container_width=True,
                        help="Bet on 6 numbers across 2 rows (pays 5:1)"):
                 line_num = st.number_input("Line number (1-11):", min_value=1, max_value=11, value=1, key="line_num")
+                
+                # Calculate the numbers in this line for preview
+                start_number = (line_num - 1) * 3 + 1
+                end_number = start_number + 5
+                covered_numbers = list(range(start_number, end_number + 1))
+                
+                # Show the numbers this bet covers
+                st.info(f"This bet covers: {', '.join(str(n) for n in covered_numbers)}")
+                
                 if st.button("Place Six Line Bet", key="place_six_line"):
                     place_bet('six_line', line_num)
 
