@@ -177,421 +177,224 @@ def place_bet(bet_type, *args):
     return success
 
 def create_roulette_board():
-    """Create an interactive roulette board with clean HTML/CSS."""
-    # Standard roulette wheel - these numbers are red
+    """Create a simple but reliable roulette board using native Streamlit components."""
+    st.write("## Roulette Board")
+    st.write("Select a chip amount above and click on the bet buttons below:")
+    
+    # Define red numbers for coloring
     red_numbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
     
-    # Create the CSS for the roulette board
-    roulette_css = """
-    <style>
-        /* Container for the entire roulette table */
-        .roulette-container {
-            font-family: Arial, sans-serif;
-            margin: 20px auto;
-            max-width: 800px;
-        }
-        
-        /* Main betting grid */
-        .roulette-grid {
-            display: grid;
-            grid-template-columns: 40px repeat(12, 1fr);
-            grid-template-rows: repeat(3, 60px);
-            grid-gap: 2px;
-            margin-bottom: 10px;
-        }
-        
-        /* Zero cell spans 3 rows */
-        .cell-0 {
-            grid-column: 1;
-            grid-row: 1 / span 3;
-            background-color: #008800;
-            color: white;
-        }
-        
-        /* Regular number cells */
-        .cell {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            color: white;
-            position: relative;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        
-        .cell:hover {
-            opacity: 0.8;
-        }
-        
-        /* Red and black colors */
-        .red { background-color: #CC0000; }
-        .black { background-color: #000000; }
-        
-        /* Chip indicator */
-        .chip {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: white;
-            color: black;
-            font-size: 11px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 2px dashed gold;
-            font-weight: bold;
-        }
-        
-        /* Layout for dozens and columns */
-        .dozens-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-gap: 2px;
-            margin-bottom: 10px;
-        }
-        
-        .dozen-cell {
-            height: 40px;
-            background-color: #0066cc;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        .dozen-cell:hover {
-            opacity: 0.8;
-        }
-        
-        /* Layout for outside bets */
-        .outside-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            grid-gap: 2px;
-            margin-bottom: 10px;
-        }
-        
-        .outside-cell {
-            height: 40px;
-            background-color: #444444;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        .outside-cell:hover {
-            opacity: 0.8;
-        }
-        
-        .outside-cell.red-bg { background-color: #CC0000; }
-        .outside-cell.black-bg { background-color: #000000; }
-        
-        /* Column bets */
-        .column-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-gap: 2px;
-        }
-        
-        .column-cell {
-            height: 40px;
-            background-color: #555555;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        .column-cell:hover {
-            opacity: 0.8;
-        }
-        
-        /* Control buttons */
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        
-        .btn-spin {
-            background-color: #CC0000;
-            color: white;
-            font-size: 18px;
-        }
-        
-        .btn-clear {
-            background-color: #444444;
-            color: white;
-        }
-    </style>
-    """
+    # Section 1: Straight Bets (0-36)
+    st.write("### Straight Bets (35:1)")
     
-    # Generate the HTML for the board
-    # First, check if there are any active bets to display chips
-    chips_html = ""
-    for bet in st.session_state.simulator.active_bets:
-        if len(bet.numbers) == 1 and isinstance(bet.numbers[0], int):
-            num = bet.numbers[0]
-            chips_html += f'document.querySelector(".cell-{num} .number").innerHTML += \'<div class="chip">${bet.amount}</div>\';'
-    
-    # Create the HTML structure
-    roulette_html = f"""
-    {roulette_css}
-    <div class="roulette-container">
-        <h2>Roulette Board</h2>
-        <p>Select a chip amount in the sidebar and click on numbers to place bets.</p>
-        
-        <!-- Main betting grid -->
-        <div class="roulette-grid">
-            <!-- Zero -->
-            <div class="cell cell-0" onclick="placeBet('straight', 0)">
-                <div class="number">0</div>
-            </div>
-            
-            <!-- Numbers 1-36 -->
-    """
-    
-    # Add all numbers to the grid
-    for row in range(3):
-        start_num = row + 1
-        for col in range(12):
-            num = start_num + col * 3
-            if num <= 36:
-                color = "red" if num in red_numbers else "black"
-                roulette_html += f"""
-                <div class="cell cell-{num} {color}" onclick="placeBet('straight', {num})">
-                    <div class="number">{num}</div>
-                </div>
-                """
-    
-    # Add column bets
-    roulette_html += """
-        </div>
-        
-        <!-- Column bets -->
-        <div class="column-grid">
-            <div class="column-cell" onclick="placeBet('column', 1)">2:1 (Column 1)</div>
-            <div class="column-cell" onclick="placeBet('column', 2)">2:1 (Column 2)</div>
-            <div class="column-cell" onclick="placeBet('column', 3)">2:1 (Column 3)</div>
-        </div>
-        
-        <!-- Dozen bets -->
-        <h3>Dozen Bets</h3>
-        <div class="dozens-grid">
-            <div class="dozen-cell" onclick="placeBet('dozen', 1)">1st Dozen (1-12)</div>
-            <div class="dozen-cell" onclick="placeBet('dozen', 2)">2nd Dozen (13-24)</div>
-            <div class="dozen-cell" onclick="placeBet('dozen', 3)">3rd Dozen (25-36)</div>
-        </div>
-        
-        <!-- Outside bets -->
-        <h3>Outside Bets</h3>
-        <div class="outside-grid">
-            <div class="outside-cell" onclick="placeBet('range', 'low')">1-18</div>
-            <div class="outside-cell" onclick="placeBet('parity', 'even')">EVEN</div>
-            <div class="outside-cell red-bg" onclick="placeBet('color', 'red')">RED</div>
-            <div class="outside-cell black-bg" onclick="placeBet('color', 'black')">BLACK</div>
-            <div class="outside-cell" onclick="placeBet('parity', 'odd')">ODD</div>
-            <div class="outside-cell" onclick="placeBet('range', 'high')">19-36</div>
-        </div>
-        
-        <!-- Controls -->
-        <div class="controls">
-            <button class="btn btn-spin" onclick="spinWheel()">SPIN WHEEL</button>
-            <button class="btn btn-clear" onclick="clearBets()">CLEAR BETS</button>
-        </div>
-    </div>
-    
-    <script>
-        // Add chips to cells that have bets on them
-        document.addEventListener('DOMContentLoaded', function() {
-            {chips_html}
-        });
-    
-        // Function to place a bet
-        function placeBet(betType, value) {
-            console.log('Placing bet:', betType, value);
-            
-            // Create a form to submit the bet to Streamlit
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = window.location.href;
-            
-            // Add fields for the bet type and value
-            const typeField = document.createElement('input');
-            typeField.type = 'hidden';
-            typeField.name = 'bet_type';
-            typeField.value = betType;
-            form.appendChild(typeField);
-            
-            const valueField = document.createElement('input');
-            valueField.type = 'hidden';
-            valueField.name = 'bet_number';
-            valueField.value = value;
-            form.appendChild(valueField);
-            
-            // Submit the form
-            document.body.appendChild(form);
-            form.submit();
-        }
-        
-        // Function to spin the wheel
-        function spinWheel() {
-            console.log('Spinning wheel');
-            
-            // Create a form to submit the spin action
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = window.location.href;
-            
-            const spinField = document.createElement('input');
-            spinField.type = 'hidden';
-            spinField.name = 'spin_action';
-            spinField.value = 'true';
-            form.appendChild(spinField);
-            
-            // Submit the form
-            document.body.appendChild(form);
-            form.submit();
-        }
-        
-        // Function to clear all bets
-        function clearBets() {
-            console.log('Clearing bets');
-            
-            // Create a form to submit the clear action
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = window.location.href;
-            
-            const clearField = document.createElement('input');
-            clearField.type = 'hidden';
-            clearField.name = 'clear_action';
-            clearField.value = 'true';
-            form.appendChild(clearField);
-            
-            // Submit the form
-            document.body.appendChild(form);
-            form.submit();
-        }
-    </script>
-    """
-    
-    # Display the roulette board using st.components.v1.html
-    st.components.v1.html(roulette_html, height=750, scrolling=False)
-    
-    # Process actions based on form submissions
-    if 'bet_type' in st.session_state and st.session_state.bet_type:
-        bet_type = st.session_state.bet_type
-        number = st.session_state.bet_number
-        
-        # Place the bet
-        try:
-            if bet_type == 'straight':
-                place_bet('straight', int(number))
-            elif bet_type == 'column':
-                place_bet('column', int(number))
-            elif bet_type == 'dozen':
-                place_bet('dozen', int(number))
-            elif bet_type == 'color':
-                place_bet('color', number)
-            elif bet_type == 'parity':
-                place_bet('parity', number)
-            elif bet_type == 'range':
-                place_bet('range', number)
-                
-            # Clear the values after processing
-            st.session_state.bet_type = ""
-            st.session_state.bet_number = ""
-            
-            # Success message
-            st.success(f"Bet placed successfully!")
-            
-            # Force a rerun to update the UI
+    # Zero
+    zero_col, grid_col = st.columns([1, 5])
+    with zero_col:
+        # Create Zero cell
+        zero_container = st.container()
+        zero_container.markdown(
+            f"<div style='background-color: green; color: white; text-align: center; "
+            f"padding: 15px; border-radius: 5px; font-weight: bold;'>0</div>",
+            unsafe_allow_html=True
+        )
+        if zero_container.button("Bet on 0", key="btn_zero"):
+            place_bet('straight', 0)
+            st.success(f"Bet placed on 0")
             st.rerun()
-        except Exception as e:
-            st.error(f"Error processing bet: {str(e)}")
     
-    # Handle spin action
-    if 'spin_action' in st.session_state:
-        try:
-            result = spin_wheel()
-            st.success(f"Result: {result}")
-            
-            # Clear the action flag
-            st.session_state.pop('spin_action', None)
-            
-            # Force a rerun to update the UI
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error spinning wheel: {str(e)}")
+    # Grid for numbers 1-36 in a 12x3 grid
+    with grid_col:
+        # Create a 3x12 grid of numbers (1-36)
+        for row in range(3):
+            cols = st.columns(12)
+            for col in range(12):
+                num = row + 1 + (col * 3)
+                if num <= 36:
+                    # Set color based on whether number is red or black
+                    bg_color = "red" if num in red_numbers else "black"
+                    
+                    # Check if there's a bet on this number
+                    has_bet = False
+                    for bet in st.session_state.simulator.active_bets:
+                        if num in bet.numbers and len(bet.numbers) == 1:
+                            has_bet = True
+                            break
+                    
+                    # Create the number display
+                    cols[col].markdown(
+                        f"<div style='background-color: {bg_color}; color: white; text-align: center; "
+                        f"padding: 10px; border-radius: 5px; font-weight: bold;'>{num}</div>",
+                        unsafe_allow_html=True
+                    )
+                    
+                    # Create a bet button for each number
+                    btn_label = "Bet" if not has_bet else "✓ Bet"
+                    if cols[col].button(btn_label, key=f"btn_{num}"):
+                        place_bet('straight', num)
+                        st.success(f"Bet placed on {num}")
+                        st.rerun()
     
-    # Handle clear action
-    if 'clear_action' in st.session_state:
-        st.session_state.simulator.clear_bets()
-        st.success("All bets cleared")
-        
-        # Clear the action flag
-        st.session_state.pop('clear_action', None)
-        
-        # Force a rerun to update the UI
-        st.rerun()
-    
-    # Display bet info and controls
-    total_bet = st.session_state.simulator.get_total_bet_amount()
+    # Section 2: Column Bets
+    st.write("### Column Bets (2:1)")
     col1, col2, col3 = st.columns(3)
     
+    # First column
     with col1:
-        st.write(f"**Current Chip:** ${st.session_state.current_bet_amount:.2f}")
-        
-    with col2:
-        st.write(f"**Total Bet:** ${total_bet:.2f}")
-        
-    with col3:
-        potential_win = st.session_state.simulator.get_potential_win()
-        st.write(f"**Potential Win:** ${potential_win:.2f}")
-        
-    # Add manual number input for live casinos
-    st.write("### Manual Number Entry")
-    manual_col1, manual_col2 = st.columns([3, 1])
-    
-    manual_num = manual_col1.text_input("Enter a number to add to history (for tracking live games)", key="manual_num")
-    if manual_col2.button("Add", key="add_manual"):
-        try:
-            # Try to convert to integer
-            num = int(manual_num)
+        st.markdown(
+            "<div style='background-color: #555; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>Column 1</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on Column 1", key="col_1"):
+            place_bet('column', 1)
+            st.success("Bet placed on Column 1")
+            st.rerun()
             
-            # Validate the number is on the wheel
-            if (num >= 0 and num <= 36) or (num == 00 and st.session_state.simulator.roulette_type == "American"):
-                update_spins_df(num, manually_added=True)
-                st.success(f"Added number {num} to history!")
-                st.rerun()
-            else:
-                st.error("Invalid roulette number!")
-        except ValueError:
-            st.error("Please enter a valid number!")
+    # Second column
+    with col2:
+        st.markdown(
+            "<div style='background-color: #555; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>Column 2</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on Column 2", key="col_2"):
+            place_bet('column', 2)
+            st.success("Bet placed on Column 2")
+            st.rerun()
+            
+    # Third column
+    with col3:
+        st.markdown(
+            "<div style='background-color: #555; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>Column 3</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on Column 3", key="col_3"):
+            place_bet('column', 3)
+            st.success("Bet placed on Column 3")
+            st.rerun()
+    
+    # Section 3: Dozen Bets
+    st.write("### Dozen Bets (2:1)")
+    doz1, doz2, doz3 = st.columns(3)
+    
+    # First dozen
+    with doz1:
+        st.markdown(
+            "<div style='background-color: #0066cc; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>1-12</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on 1st Dozen", key="doz_1"):
+            place_bet('dozen', 1)
+            st.success("Bet placed on 1st Dozen (1-12)")
+            st.rerun()
+            
+    # Second dozen
+    with doz2:
+        st.markdown(
+            "<div style='background-color: #0066cc; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>13-24</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on 2nd Dozen", key="doz_2"):
+            place_bet('dozen', 2)
+            st.success("Bet placed on 2nd Dozen (13-24)")
+            st.rerun()
+            
+    # Third dozen
+    with doz3:
+        st.markdown(
+            "<div style='background-color: #0066cc; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>25-36</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on 3rd Dozen", key="doz_3"):
+            place_bet('dozen', 3)
+            st.success("Bet placed on 3rd Dozen (25-36)")
+            st.rerun()
+    
+    # Section 4: Outside Bets (Red/Black, Odd/Even, 1-18/19-36)
+    st.write("### Outside Bets (1:1)")
+    outside1, outside2, outside3, outside4, outside5, outside6 = st.columns(6)
+    
+    # Low (1-18)
+    with outside1:
+        st.markdown(
+            "<div style='background-color: #444; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>1-18</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on 1-18", key="low"):
+            place_bet('range', 'low')
+            st.success("Bet placed on 1-18")
+            st.rerun()
+    
+    # Even
+    with outside2:
+        st.markdown(
+            "<div style='background-color: #444; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>EVEN</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on EVEN", key="even"):
+            place_bet('parity', 'even')
+            st.success("Bet placed on EVEN")
+            st.rerun()
+    
+    # Red
+    with outside3:
+        st.markdown(
+            "<div style='background-color: red; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>RED</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on RED", key="red"):
+            place_bet('color', 'red')
+            st.success("Bet placed on RED")
+            st.rerun()
+    
+    # Black
+    with outside4:
+        st.markdown(
+            "<div style='background-color: black; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>BLACK</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on BLACK", key="black"):
+            place_bet('color', 'black')
+            st.success("Bet placed on BLACK")
+            st.rerun()
+    
+    # Odd
+    with outside5:
+        st.markdown(
+            "<div style='background-color: #444; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>ODD</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on ODD", key="odd"):
+            place_bet('parity', 'odd')
+            st.success("Bet placed on ODD")
+            st.rerun()
+    
+    # High (19-36)
+    with outside6:
+        st.markdown(
+            "<div style='background-color: #444; color: white; text-align: center; "
+            "padding: 10px; border-radius: 5px;'>19-36</div>",
+            unsafe_allow_html=True
+        )
+        if st.button("Bet on 19-36", key="high"):
+            place_bet('range', 'high')
+            st.success("Bet placed on 19-36")
+            st.rerun()
+    
+    # Clear bets button
+    if st.button("CLEAR ALL BETS", type="primary"):
+        st.session_state.simulator.clear_bets()
+        st.success("All bets cleared")
+        st.rerun()
     
     # Bet types legend
     with st.expander("Bet Types and Payouts"):
@@ -782,10 +585,17 @@ def main():
     
     # Hidden form fields for communication with the HTML/JS code
     # These are placed at the top level to ensure they're always created
-    bet_type = st.text_input("Bet Type", key="bet_type", value="", label_visibility="collapsed")
-    bet_number = st.text_input("Bet Number", key="bet_number", value="", label_visibility="collapsed")
-    spin_action = st.text_input("Spin Action", key="spin_action", value="", label_visibility="collapsed")
-    clear_action = st.text_input("Clear Action", key="clear_action", value="", label_visibility="collapsed")
+    with st.container():
+        st.write("#### Hidden Form Fields (Debug)")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            bet_type = st.text_input("Bet Type", key="bet_type", value="")
+            bet_number = st.text_input("Bet Number", key="bet_number", value="")
+        
+        with col2:
+            spin_action = st.text_input("Spin Action", key="spin_action", value="")
+            clear_action = st.text_input("Clear Action", key="clear_action", value="")
     
     # Sidebar settings
     with st.sidebar:
@@ -946,7 +756,9 @@ def main():
             st.write("### Specific Bet Recommendations")
             
             recommendations = st.session_state.agent.get_specific_bet_recommendations(
-                st.session_state.spins_df
+                st.session_state.spins_df,
+                st.session_state.simulator.roulette_type,
+                st.session_state.simulator.balance
             )
             
             rec_cols = st.columns(3)
