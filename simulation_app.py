@@ -409,7 +409,7 @@ def create_chip_selector():
 
 def create_betting_controls():
     """Create controls for betting and spinning."""
-    cols = st.columns([1, 1, 1, 1])
+    cols = st.columns([1, 1, 1, 1, 1])
     
     # Balance display
     cols[0].metric(
@@ -425,20 +425,17 @@ def create_betting_controls():
     cols[1].metric("Total Bet", f"${total_bet:.2f}")
     cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
     
-    # Create a row of buttons for bet control
-    bet_control_cols = cols[3].columns(2)
-    
-    # Undo button
-    if bet_control_cols[0].button("UNDO LAST BET", key="btn_undo_bet", use_container_width=True, 
-                                 type="secondary", help="Remove the last bet placed"):
+    # Undo button - place directly in the column without nesting
+    if cols[3].button("UNDO LAST BET", key="btn_undo_bet", use_container_width=True, 
+                    type="secondary", help="Remove the last bet placed"):
         if st.session_state.simulator.undo_last_bet():
             st.success("Last bet removed!")
         else:
             st.warning("No bets to undo.")
     
-    # Clear bets button
-    if bet_control_cols[1].button("CLEAR BETS", key="btn_clear_bets", use_container_width=True, 
-                                 type="secondary", help="Clear all active bets"):
+    # Clear bets button - place directly in the main controls row
+    if cols[4].button("CLEAR BETS", key="btn_clear_bets", use_container_width=True, 
+                    type="secondary", help="Clear all active bets"):
         st.session_state.simulator.clear_bets()
         st.success("All bets cleared!")
     
