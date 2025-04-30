@@ -41,7 +41,7 @@ class RLAgent:
         self._last_cached_time = time()  # Track when caches were last updated
         
         # Initialize the real-time adaptation system
-        self.real_time_adapter = RealTimeAdapter(window_size=20, min_confidence=0.6)
+        self.real_time_adapter = RealTimeAdapter(time_limit=8.0)  # 8-second window for decision
 
     def record_alignment(self, success: bool):
         """
@@ -279,7 +279,7 @@ class RLAgent:
         self.accuracy = 0.5
         
         # Reset the real-time adapter
-        self.real_time_adapter = RealTimeAdapter(window_size=20, min_confidence=0.6)
+        self.real_time_adapter = RealTimeAdapter(time_limit=8.0)
 
     @st.cache_data(ttl=30)  # Cache for 30 seconds to balance freshness and performance
     def get_cached_summary(_self):
