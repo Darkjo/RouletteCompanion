@@ -329,7 +329,7 @@ def create_chip_selector():
         if chip < 1:
             display_value = f"${chip:.2f}"
         else:
-            display_value = f"${int(chip)}" if chip.is_integer() else f"${chip:.2f}"
+            display_value = f"${int(chip)}" if chip == int(chip) else f"${chip:.2f}"
         
         # Create a chip button with appropriate styling
         if chip_cols[i].button(
@@ -360,9 +360,37 @@ def create_betting_controls():
     cols[1].metric("Total Bet", f"${total_bet:.2f}")
     cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
     
+    # Create two buttons - Spin or Enter Live Number
+    spin_cols = st.columns(2)
+    
     # Spin button
-    if cols[3].button("SPIN", key="btn_spin", use_container_width=True, type="primary"):
+    if spin_cols[0].button("SPIN", key="btn_spin", use_container_width=True, type="primary"):
         spin_wheel()
+    
+    # Manual input for live casino numbers
+    with spin_cols[1]:
+        manual_num = st.text_input("Or enter live casino number:", key="manual_number", placeholder="Enter number (0-36 or 00)")
+        if st.button("Add Result", key="btn_add_result", use_container_width=True):
+            if manual_num:
+                # Validate the input
+                valid_input = False
+                if manual_num == "00":
+                    valid_input = True
+                elif manual_num.isdigit() and 0 <= int(manual_num) <= 36:
+                    valid_input = True
+                
+                if valid_input:
+                    # Convert to correct type
+                    if manual_num == "00":
+                        result = "00"
+                    else:
+                        result = int(manual_num)
+                    
+                    # Update spin history
+                    update_spins_df(result)
+                    st.success(f"Added result: {result}")
+                else:
+                    st.error("Invalid number. Enter 0-36 or 00.")
 
 def create_spin_history_display():
     """Create a display for the spin history."""
@@ -820,28 +848,27 @@ def main():
             
             st.success("Game reset successfully!")
         
-        # About section
-        st.header("About")
-        st.write("""
-        This interactive roulette simulator allows you to:
-        - Place various types of bets
-        - Track your performance over time
-        - Get AI-powered betting recommendations
-        - Analyze betting patterns and opportunities
+        # Show betting options info
+        st.header("Betting Options")
+        st.markdown("""
+        ### Outside Bets
+        1. **Dozen Bet** – Pays 2 to 1
+        2. **Odd or Even** – Pays 1 to 1
+        3. **Red or Black** – Pays 1 to 1
+        4. **High or Low** – Pays 1 to 1
+        5. **Column Bet** – Pays 2 to 1
         
-        **Payout Details:**
-        - Single Number: 35 to 1
-        - Split (2 numbers): 17 to 1
-        - Street (3 numbers): 11 to 1
-        - Corner (4 numbers): 8 to 1
-        - Six Line (6 numbers): 5 to 1
-        - Top Line (0,00,1,2,3): 6 to 1
-        - Dozen or Column: 2 to 1
-        - Red/Black, Even/Odd, High/Low: 1 to 1
+        ### Inside Bets
+        6. **Top Line Bet** (0, 00, 1, 2, 3) – Pays 6 to 1
+        7. **Six Line Bet** (6 numbers) – Pays 5 to 1
+        8. **Corner Bet** (4 numbers) – Pays 8 to 1
+        9. **Street Bet** (3 numbers) – Pays 11 to 1
+        10. **Split Bet** (2 numbers) – Pays 17 to 1
+        11. **Straight Bet** (1 number) – Pays 35 to 1
         """)
     
-    # Main area with tabs
-    main_tabs = st.tabs(["Roulette Table", "Analysis", "Statistics"])
+    # Main area with tabs - simplified to focus on functionality
+    main_tabs = st.tabs(["Roulette Table", "Analysis"])
     
     with main_tabs[0]:
         # Betting controls
@@ -857,18 +884,43 @@ def main():
         create_spin_history_display()
     
     with main_tabs[1]:
-        # Agent recommendations
-        create_recommendation_display()
+        # Create columns for stats and recommendations
+        analysis_cols = st.columns(2)
         
-        # Advanced analysis
-        create_advanced_analysis()
-    
-    with main_tabs[2]:
-        # Session stats
-        create_session_stats()
+        with analysis_cols[0]:
+            # Session stats - simplified
+            create_session_stats()
         
-        # Strategy performance
-        create_strategy_performance_display()
+        with analysis_cols[1]:
+            # Agent recommendations - simplified
+            create_recommendation_display()
+        
+        # Display sleeper numbers as these are most useful
+        if len(st.session_state.spins_df) >= 10:
+            st.write("### Sleeper Numbers Analysis")
+            sleepers = st.session_state.advanced_analysis.get_sleeper_numbers(
+                st.session_state.spins_df,
+                st.session_state.simulator.roulette_type
+            )
+            
+            if sleepers and 'numbers' in sleepers:
+                st.write("Numbers that haven't appeared for a while:")
+                
+                sleeper_cols = st.columns(min(5, len(sleepers['numbers'])))
+                for i, sleeper in enumerate(sleepers['numbers']):
+                    number = sleeper.get('number')
+                    absence = sleeper.get('spins_absent', 0)
+                    props = st.session_state.simulator.get_number_properties(int(number) if number.isdigit() else number)
+                    color = props['color']
+                    text_color = "white" if color in ['black', 'green'] else "black"
+                    
+                    sleeper_cols[i].markdown(
+                        f"<div style='background-color: {color}; color: {text_color}; "
+                        f"text-align: center; padding: 10px; border-radius: 50%; width: 100%; margin-bottom: 5px;'>"
+                        f"{number}</div>"
+                        f"<div style='text-align: center;'>Missing for {absence} spins</div>",
+                        unsafe_allow_html=True
+                    )
 
 if __name__ == "__main__":
     main()

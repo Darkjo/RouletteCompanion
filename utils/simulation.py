@@ -523,7 +523,7 @@ class RouletteSimulator:
         Returns:
             List[float]: List of chip denominations
         """
-        return [0.10, 0.50, 1, 5, 10, 25, 50, 100, 500]
+        return [0.10, 0.50, 1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 500.0]
     
     def get_roulette_layout(self) -> List[List[Union[int, str]]]:
         """
