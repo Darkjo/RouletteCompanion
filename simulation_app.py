@@ -425,9 +425,20 @@ def create_betting_controls():
     cols[1].metric("Total Bet", f"${total_bet:.2f}")
     cols[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
     
+    # Create a row of buttons for bet control
+    bet_control_cols = cols[3].columns(2)
+    
+    # Undo button
+    if bet_control_cols[0].button("UNDO LAST BET", key="btn_undo_bet", use_container_width=True, 
+                                 type="secondary", help="Remove the last bet placed"):
+        if st.session_state.simulator.undo_last_bet():
+            st.success("Last bet removed!")
+        else:
+            st.warning("No bets to undo.")
+    
     # Clear bets button
-    if cols[3].button("CLEAR BETS", key="btn_clear_bets", use_container_width=True, 
-                      type="secondary", help="Clear all active bets"):
+    if bet_control_cols[1].button("CLEAR BETS", key="btn_clear_bets", use_container_width=True, 
+                                 type="secondary", help="Clear all active bets"):
         st.session_state.simulator.clear_bets()
         st.success("All bets cleared!")
     
@@ -965,23 +976,118 @@ def main():
         """)
     
     # Main area with tabs - simplified to focus on functionality
-    main_tabs = st.tabs(["Roulette Table", "Analysis"])
+    main_tabs = st.tabs(["Roulette Table & Recommendations", "Analysis"])
     
     with main_tabs[0]:
-        # Betting controls
-        create_betting_controls()
+        # Create two columns - 2/3 for table, 1/3 for recommendations
+        table_rec_cols = st.columns([2, 1])
         
-        # Chip selector
-        create_chip_selector()
+        with table_rec_cols[0]:
+            # Betting controls
+            create_betting_controls()
+            
+            # Chip selector
+            create_chip_selector()
+            
+            # Roulette board
+            create_roulette_board()
+            
+            # Spin history
+            create_spin_history_display()
         
-        # Roulette board
-        create_roulette_board()
-        
-        # Spin history
-        create_spin_history_display()
+        with table_rec_cols[1]:
+            # Agent recommendations directly on the table screen
+            st.write("### Betting Recommendations")
+            
+            if not hasattr(st.session_state, 'agent') or st.session_state.spins_df.empty:
+                st.info("Play more spins to get recommendations!")
+            else:
+                # Get recommendations from the agent
+                recommendations = st.session_state.agent.get_specific_bet_recommendations(
+                    st.session_state.spins_df,
+                    st.session_state.simulator.roulette_type,
+                    st.session_state.simulator.balance
+                )
+                
+                # Store recommendations for later evaluation
+                st.session_state.last_recommendations = recommendations
+                
+                # Show recommendations with clear action buttons for quick betting
+                st.write("**Single Numbers**")
+                if recommendations['single_numbers']:
+                    for num_rec in recommendations['single_numbers']:
+                        confidence = num_rec.get('confidence', 0)
+                        number = num_rec['number']
+                        
+                        # Create a container for each recommendation with a bet button
+                        num_cols = st.columns([3, 1])
+                        
+                        with num_cols[0]:
+                            st.markdown(
+                                f"<div style='display: flex; align-items: center;'>"
+                                f"<span style='font-weight: bold; margin-right: 10px;'>Number {number}:</span>"
+                                f"<div style='background: linear-gradient(to right, "
+                                f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
+                                f"#f0f0f0 {int(confidence*100)}%); "
+                                f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
+                                f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        
+                        # Add a button to place this bet
+                        with num_cols[1]:
+                            if st.button(f"Bet", key=f"bet_num_{number}"):
+                                # Use current chip value to place this bet
+                                if st.session_state.current_chip_value:
+                                    place_bet('straight', number)
+                                else:
+                                    st.warning("Select a chip first")
+                else:
+                    st.write("No single number recommendations")
+                
+                # Display outside bet recommendations
+                st.write("**Outside Bets**")
+                for bet_type in ['red_black', 'even_odd', 'high_low']:
+                    if bet_type in recommendations and recommendations[bet_type].get('recommendation'):
+                        rec = recommendations[bet_type]
+                        confidence = rec.get('confidence', 0)
+                        recommendation = rec['recommendation']
+                        bet_name = bet_type.replace('_', ' ').title()
+                        
+                        # Create a container with bet button
+                        out_cols = st.columns([3, 1])
+                        
+                        with out_cols[0]:
+                            st.markdown(
+                                f"<div style='display: flex; align-items: center;'>"
+                                f"<span style='font-weight: bold; margin-right: 10px;'>{bet_name}:</span>"
+                                f"<span style='margin-right: 10px;'>{recommendation}</span>"
+                                f"<div style='background: linear-gradient(to right, "
+                                f"rgba(0,128,0,{confidence}) {int(confidence*100)}%, "
+                                f"#f0f0f0 {int(confidence*100)}%); "
+                                f"height: 20px; flex-grow: 1; border-radius: 5px;'></div>"
+                                f"<span style='margin-left: 10px;'>{confidence:.2f}</span>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        
+                        # Add a button to place this bet
+                        with out_cols[1]:
+                            if st.button(f"Bet", key=f"bet_{bet_type}_{recommendation}"):
+                                # Use current chip value to place this bet
+                                if st.session_state.current_chip_value:
+                                    if bet_type == 'red_black':
+                                        place_bet('color', recommendation.lower())
+                                    elif bet_type == 'even_odd':
+                                        place_bet('parity', recommendation.lower())
+                                    elif bet_type == 'high_low':
+                                        place_bet('range', recommendation.lower())
+                                else:
+                                    st.warning("Select a chip first")
     
     with main_tabs[1]:
-        # Create columns for stats and recommendations
+        # Create columns for stats
         analysis_cols = st.columns(2)
         
         with analysis_cols[0]:
@@ -989,8 +1095,28 @@ def main():
             create_session_stats()
         
         with analysis_cols[1]:
-            # Agent recommendations - simplified
-            create_recommendation_display()
+            # Advanced analysis components
+            if len(st.session_state.spins_df) >= 10:
+                st.write("### Wheel Sector Analysis")
+                sector_analysis = st.session_state.advanced_analysis.analyze_sectors(
+                    st.session_state.spins_df,
+                    st.session_state.simulator.roulette_type
+                )
+                
+                if sector_analysis and 'sectors' in sector_analysis:
+                    sector_data = []
+                    for sector in sector_analysis['sectors']:
+                        sector_data.append({
+                            'Sector': sector['name'],
+                            'Frequency': f"{sector['frequency']:.1%}",
+                            'Expected': f"{sector['expected']:.1%}",
+                            'Difference': sector['frequency'] - sector['expected']
+                        })
+                    
+                    if sector_data:
+                        sector_df = pd.DataFrame(sector_data)
+                        sector_df = sector_df.sort_values('Difference', ascending=False)
+                        st.dataframe(sector_df, use_container_width=True, hide_index=True)
         
         # Display sleeper numbers as these are most useful
         if len(st.session_state.spins_df) >= 10:
