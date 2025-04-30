@@ -750,7 +750,7 @@ def create_session_stats():
     stat_cols = st.columns(2)
     
     with stat_cols[0]:
-        st.metric("Starting Balance", f"${stats['starting_balance']:.2f}")
+        st.metric("Initial Balance", f"${st.session_state.simulator.initial_balance:.2f}")
         st.metric("Bets Placed", stats['bets_placed'])
         st.metric("Bet Win Rate", f"{stats['win_rate']:.1%}")
     

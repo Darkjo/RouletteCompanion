@@ -95,6 +95,7 @@ class RouletteSimulator:
         self.active_bets = []
         self.spin_history = []
         self.balance = 1000.0  # Default starting balance
+        self.initial_balance = 1000.0  # Track initial balance for stats
         self.result = None
         
         # Define roulette wheel numbers
@@ -125,6 +126,7 @@ class RouletteSimulator:
             balance (float): The new balance
         """
         self.balance = balance
+        self.initial_balance = balance  # Also update initial balance
     
     def clear_bets(self):
         """Clear all active bets."""
