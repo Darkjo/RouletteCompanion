@@ -1360,7 +1360,8 @@ def main():
         """)
     
     # Display balance, controls, and bet info at the top
-    top_row1 = st.columns([1, 1, 1, 1, 1])
+    # Row 1: Balance, Bet Info, and Spin
+    top_row1 = st.columns([2, 2, 2, 3])
     
     # Balance display
     top_row1[0].metric(
@@ -1376,13 +1377,14 @@ def main():
     top_row1[1].metric("Total Bet", f"${total_bet:.2f}")
     top_row1[2].metric("Potential Win", f"${potential_win:.2f}" if potential_win > 0 else "$0.00")
     
-    # Spin button - moved to top
-    if top_row1[3].button("SPIN", key="btn_spin_top", use_container_width=True, type="primary"):
+    # Spin button and manual input
+    spin_cols = top_row1[3].columns([1, 2])
+    if spin_cols[0].button("SPIN", key="btn_spin_top", use_container_width=True, type="primary"):
         spin_wheel()
     
-    # Manual input for live casino numbers - moved to top
-    manual_num = top_row1[4].text_input("Enter number (0-36 or 00):", key="manual_number_top", 
-                                        placeholder="0-36 or 00")
+    # Manual input for live casino numbers
+    manual_num = spin_cols[1].text_input("", key="manual_number_top", 
+                                        placeholder="Enter number (0-36 or 00)")
     if manual_num:
         # Validate the input
         valid_input = False
@@ -1403,12 +1405,11 @@ def main():
         else:
             st.error("Invalid number. Enter 0-36 or 00.")
     
-    # Chip selection and control buttons row
-    top_row2 = st.columns([3, 1, 1])
+    # Row 2: Chip selection and control buttons
+    top_row2 = st.columns([4, 1, 1])
     
     # Chip selection as buttons
     with top_row2[0]:
-        st.write("**Select Chip:**")
         chip_cols = st.columns(9)
         chip_values = [0.1, 0.5, 1, 5, 10, 25, 50, 100, 500]
         
