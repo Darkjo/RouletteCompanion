@@ -264,43 +264,34 @@ def create_roulette_board():
     # Main title
     st.write("## Roulette Board")
     
-    # Create a clean and simplified roulette board with traditional coloring
+    # Use simple HTML table approach to avoid comments showing up
     html_board = """
     <style>
-        .roulette-board {
-            margin: 20px auto;
+        /* Table-based roulette styling */
+        .roulette-table {
+            border-collapse: collapse;
             width: 100%;
             max-width: 800px;
+            margin: 0 auto;
             background-color: #006400;
-            border: 2px solid #333;
-            padding: 10px;
             color: white;
             font-family: sans-serif;
-        }
-        
-        .roulette-grid {
-            display: grid;
-            grid-template-columns: auto repeat(12, 1fr);
-            gap: 2px;
+            border: 3px solid #333;
         }
         
         .zero-cell {
-            grid-column: 1;
-            grid-row: 1 / span 3;
             background-color: #006400;
-            border: 1px solid white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            text-align: center;
             font-weight: bold;
-            padding: 5px;
+            width: 40px;
+            border: 1px solid white;
+            height: 120px;
         }
         
         .number-cell {
+            width: 40px;
             height: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            text-align: center;
             font-weight: bold;
             border: 1px solid white;
         }
@@ -313,33 +304,25 @@ def create_roulette_board():
             background-color: #000000;
         }
         
-        .bet-markers {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 2px;
-            margin-top: 10px;
+        .column-cell {
+            background-color: #0066cc;
+            text-align: center;
+            border: 1px solid white;
+            height: 30px;
         }
         
-        .dozen-bet {
-            grid-column: span 2;
+        .dozens-row td {
+            background-color: #0066cc;
             text-align: center;
-            padding: 10px;
-            background-color: #004080;
             border: 1px solid white;
+            height: 40px;
         }
         
-        .outside-bet {
-            text-align: center;
-            padding: 10px;
-            border: 1px solid white;
+        .outside-row td {
             background-color: #333;
-        }
-        
-        .column-bet {
             text-align: center;
-            padding: 5px;
             border: 1px solid white;
-            background-color: #004080;
+            height: 40px;
         }
         
         .bet-legend {
@@ -347,85 +330,131 @@ def create_roulette_board():
             background-color: rgba(0,0,0,0.5);
             padding: 10px;
             text-align: center;
-            font-size: 12px;
+            border-radius: 5px;
         }
         
         .chip {
             display: inline-block;
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
-            margin-left: 5px;
+            margin-left: 3px;
+            line-height: 16px;
+            font-size: 8px;
             text-align: center;
-            font-size: 10px;
-            line-height: 20px;
-            vertical-align: middle;
+            background-color: white;
+            color: black;
+            border: 1px solid #333;
         }
-        
-        .white-chip { background-color: white; color: black; border: 1px solid #333; }
-        .red-chip { background-color: #d33; color: white; border: 1px solid white; }
-        .blue-chip { background-color: #33b; color: white; border: 1px solid white; }
-        .green-chip { background-color: #3b3; color: black; border: 1px solid #333; }
-        .black-chip { background-color: black; color: white; border: 1px solid white; }
     </style>
     
-    <div class="roulette-board">
-        <div class="roulette-grid">
-            <!-- Zero cell -->
-            <div class="zero-cell">0</div>
-            
-            <!-- Number grid - simple version with just colors matching the screenshot -->
+    <table class="roulette-table">
+        <tr>
+            <td rowspan="3" class="zero-cell">0</td>
     """
     
-    # Add the number cells with standard alternating colors (odds red, evens black)
-    for row in range(3):
-        for col in range(12):
-            number = row + (col * 3) + 1
-            color_class = "red-cell" if number % 2 == 1 else "black-cell"
-            
-            # Check if there's a bet on this number
-            has_bet = False
-            bet_amount = ""
-            for bet in st.session_state.simulator.active_bets:
-                if number in bet.numbers and len(bet.numbers) == 1:
-                    has_bet = True
-                    bet_amount = str(bet.amount)
-                    break
-            
-            # Add chip indicator if there's a bet
-            if has_bet:
-                chip_display = f'<span class="chip white-chip">${bet_amount}</span>'
-                html_board += f'<div class="number-cell {color_class}">{number} {chip_display}</div>'
-            else:
-                html_board += f'<div class="number-cell {color_class}">{number}</div>'
+    # Add the first row - numbers 1, 4, 7, etc.
+    html_board += "<tr>"
+    for num in range(1, 37, 3):
+        # Determine cell color (odd=red, even=black)
+        color_class = "red-cell" if num % 2 == 1 else "black-cell"
+        
+        # Check if there's a bet on this number
+        has_bet = False
+        bet_amount = ""
+        for bet in st.session_state.simulator.active_bets:
+            if num in bet.numbers and len(bet.numbers) == 1:
+                has_bet = True
+                bet_amount = str(bet.amount)
+                break
+        
+        # Add chip indicator if there's a bet
+        if has_bet:
+            html_board += f'<td class="number-cell {color_class}">{num}<span class="chip">${bet_amount}</span></td>'
+        else:
+            html_board += f'<td class="number-cell {color_class}">{num}</td>'
     
-    # Add column bets - these appear at the end of each row
-    for col in range(3):
-        html_board += f'<div class="column-bet">2:1</div>'
+    # Add column bet cell
+    html_board += '<td class="column-cell">2:1</td></tr>'
     
-    # Complete the grid and add outside bets
+    # Add the second row - numbers 2, 5, 8, etc.
+    html_board += "<tr>"
+    for num in range(2, 37, 3):
+        # Determine cell color (odd=red, even=black)
+        color_class = "red-cell" if num % 2 == 1 else "black-cell"
+        
+        # Check if there's a bet on this number
+        has_bet = False
+        bet_amount = ""
+        for bet in st.session_state.simulator.active_bets:
+            if num in bet.numbers and len(bet.numbers) == 1:
+                has_bet = True
+                bet_amount = str(bet.amount)
+                break
+        
+        # Add chip indicator if there's a bet
+        if has_bet:
+            html_board += f'<td class="number-cell {color_class}">{num}<span class="chip">${bet_amount}</span></td>'
+        else:
+            html_board += f'<td class="number-cell {color_class}">{num}</td>'
+    
+    # Add column bet cell
+    html_board += '<td class="column-cell">2:1</td></tr>'
+    
+    # Add the third row - numbers 3, 6, 9, etc.
+    html_board += "<tr>"
+    for num in range(3, 37, 3):
+        # Determine cell color (odd=red, even=black)
+        color_class = "red-cell" if num % 2 == 1 else "black-cell"
+        
+        # Check if there's a bet on this number
+        has_bet = False
+        bet_amount = ""
+        for bet in st.session_state.simulator.active_bets:
+            if num in bet.numbers and len(bet.numbers) == 1:
+                has_bet = True
+                bet_amount = str(bet.amount)
+                break
+        
+        # Add chip indicator if there's a bet
+        if has_bet:
+            html_board += f'<td class="number-cell {color_class}">{num}<span class="chip">${bet_amount}</span></td>'
+        else:
+            html_board += f'<td class="number-cell {color_class}">{num}</td>'
+    
+    # Add column bet cell
+    html_board += '<td class="column-cell">2:1</td></tr>'
+    
+    # Add dozens row
     html_board += """
-        </div>
-        
-        <div class="bet-markers">
-            <!-- Dozen bets -->
-            <div class="dozen-bet">1st Dozen (1-12)</div>
-            <div class="dozen-bet">2nd Dozen (13-24)</div>
-            <div class="dozen-bet">3rd Dozen (25-36)</div>
-            
-            <!-- Outside bets -->
-            <div class="outside-bet">1-18</div>
-            <div class="outside-bet">EVEN</div>
-            <div class="outside-bet">RED</div>
-            <div class="outside-bet">BLACK</div>
-            <div class="outside-bet">ODD</div>
-            <div class="outside-bet">19-36</div>
-        </div>
-        
-        <div class="bet-legend">
-            <p><strong>Bet Types:</strong> A = Straight (35:1) | B = Split (17:1) | C = Street (11:1) | D = Corner (8:1) | E = Five Number (6:1)</p>
-            <p>F = Six Line (5:1) | G/H = Column (2:1) | I = Dozen (2:1) | J/K = Even Money (1:1)</p>
-        </div>
+        <tr class="dozens-row">
+            <td colspan="4">1st Dozen (1-12)</td>
+            <td colspan="4">2nd Dozen (13-24)</td>
+            <td colspan="4">3rd Dozen (25-36)</td>
+            <td></td>
+        </tr>
+    """
+    
+    # Add outside bets rows (2 rows with 3 bets each)
+    html_board += """
+        <tr class="outside-row">
+            <td colspan="2">1-18</td>
+            <td colspan="2">EVEN</td>
+            <td colspan="2">RED</td>
+            <td colspan="2">BLACK</td>
+            <td colspan="2">ODD</td>
+            <td colspan="2">19-36</td>
+            <td></td>
+        </tr>
+    """
+    
+    # Close the table and add bet legend
+    html_board += """
+    </table>
+    
+    <div class="bet-legend">
+        <p><strong>Bet Types:</strong> A = Straight (35:1) | B = Split (17:1) | C = Street (11:1) | D = Corner (8:1) | E = Five Number (6:1)</p>
+        <p>F = Six Line (5:1) | G/H = Column (2:1) | I = Dozen (2:1) | J/K = Even Money (1:1)</p>
     </div>
     """
     
