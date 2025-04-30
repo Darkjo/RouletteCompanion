@@ -503,6 +503,10 @@ class RouletteSimulator:
         # Update balance
         self.balance += winnings
         
+        # If balance is less than or equal to 0, set it to 0
+        if self.balance <= 0:
+            self.balance = 0
+        
         # Store result in history
         self.spin_history.append({
             'result': self.result,

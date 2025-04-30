@@ -97,6 +97,10 @@ def update_spins_df(number: Union[int, str], manually_added: bool = False):
         # Update balance
         st.session_state.simulator.balance += winnings
         
+        # If balance is less than or equal to 0, set it to 0
+        if st.session_state.simulator.balance <= 0:
+            st.session_state.simulator.balance = 0
+        
         # Store result in history
         st.session_state.simulator.spin_history.append({
             'result': number,
