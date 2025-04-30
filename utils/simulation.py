@@ -128,7 +128,24 @@ class RouletteSimulator:
     
     def clear_bets(self):
         """Clear all active bets."""
+        # Refund all bet amounts back to balance
+        for bet in self.active_bets:
+            self.balance += bet.amount
+        # Clear the active bets list
         self.active_bets = []
+        
+    def undo_last_bet(self):
+        """Remove the most recently placed bet and refund the bet amount."""
+        if not self.active_bets:
+            return False
+            
+        # Get the last bet
+        last_bet = self.active_bets.pop()
+        
+        # Refund the bet amount
+        self.balance += last_bet.amount
+        
+        return True
     
     def add_straight_bet(self, number: Union[int, str], amount: float) -> bool:
         """
