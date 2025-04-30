@@ -327,14 +327,15 @@ def create_roulette_board():
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            width: 100%;
         }
         
         .red {
-            background-color: #c00; /* Red */
+            background-color: #ff0000; /* Bright red to match the screenshot */
         }
         
         .black {
-            background-color: #000; /* Black */
+            background-color: #000000; /* Black */
         }
         
         /* Outside bet sections */
@@ -516,7 +517,9 @@ def create_roulette_board():
             
             # Generate the cell with optional chip and bet type indicator
             # We'll add A for straight bets directly on the number cells
-            html_board += f'<div class="number-cell {color}" style="position: relative;">{number}'
+            # Using traditional roulette color pattern (alternating red/black) rather than European wheel pattern
+            traditional_color = "red" if (number % 2 == 1) else "black"  # Odd numbers are red, even numbers are black
+            html_board += f'<div class="number-cell {traditional_color}" style="position: relative;">{number}'
             
             # Add the straight bet indicator (A) if needed
             if has_straight_bet:
